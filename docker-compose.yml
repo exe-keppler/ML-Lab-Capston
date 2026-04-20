@@ -1,0 +1,217 @@
+# ═══════════════════════════════════════════════════════════════
+# IDS-ML Educational Lab — Arquitectura v2 (sin Wazuh)
+# Stack de validación — 7 contenedores + 4 volúmenes
+# ═══════════════════════════════════════════════════════════════
+# Uso:
+#   cd /opt/ids-lab && docker compose -f docker-compose.validation.yml up -d
+#
+# Requisitos:
+#   - .env con IDS_API_KEY, JUPYTER_TOKEN (ver .env.example)
+#   - /opt/ids-lab/models/ con artefactos v3 + manifest.json
+#   - /opt/ids-lab/datasets/ con muestra CICIDS2017 (opcional)
+# ═══════════════════════════════════════════════════════════════
+
+services:
+
+  # ── 1. Reverse Proxy (nginx-unprivileged + basic auth) ─────
+  reverse_proxy:
+    image: nginxinc/nginx-unprivileged:1.27-alpine
+    container_name: ids-proxy
+    restart: unless-stopped
+    ports:
+      - "80:8080"
+    volumes:
+      - ./configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./configs/nginx/htpasswd:/etc/nginx/.htpasswd:ro
+    depends_on:
+      ml_api:
+        condition: service_healthy
+    networks:
+      - ids_network
+    mem_limit: 128m
+    cpus: "0.25"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ── 2. ML API (FastAPI + Random Forest v3) ──────────────────
+  ml_api:
+    build:
+      context: ./build/ml_api
+      dockerfile: Dockerfile
+    container_name: ids-ml-api
+    restart: unless-stopped
+    environment:
+      - MODEL_DIR=/app/models
+      - IDS_API_KEY=${IDS_API_KEY:?set in .env}
+      - IDS_RATE_LIMIT=${IDS_RATE_LIMIT:-120/minute}
+      - PYTHONPATH=/app/src
+    volumes:
+      - ./models:/app/models:ro
+      - ./logs:/app/logs:rw
+    networks:
+      - ids_network
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 768m
+    cpus: "1.5"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ── 3. Dashboard (Streamlit) ────────────────────────────────
+  dashboard:
+    build:
+      context: ./build/dashboard
+      dockerfile: Dockerfile
+    container_name: ids-dashboard
+    restart: unless-stopped
+    environment:
+      - ML_API_URL=http://ml_api:8000
+      - IDS_API_KEY=${IDS_API_KEY}
+      - LOGS_DIR=/app/logs
+    volumes:
+      - ./logs:/app/logs:rw
+    depends_on:
+      ml_api:
+        condition: service_healthy
+    networks:
+      - ids_network
+    mem_limit: 512m
+    cpus: "0.5"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ── 4. Jupyter (JupyterLab + ART) ──────────────────────────
+  jupyter:
+    build:
+      context: ./build/jupyter
+      dockerfile: Dockerfile
+    container_name: ids-jupyter
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:?set in .env}
+      - ML_API_URL=http://ml_api:8000
+      - IDS_API_KEY=${IDS_API_KEY}
+    volumes:
+      - ./models:/home/app/models:rw
+      - ./datasets:/home/app/datasets:ro
+      - ./logs:/home/app/logs:rw
+      - ./notebooks:/home/app/notebooks:rw
+    depends_on:
+      ml_api:
+        condition: service_healthy
+    networks:
+      - ids_network
+    mem_limit: 1536m
+    cpus: "2.0"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ── 5. Sensor (CICFlowMeter real + request_id + correlacion) ──
+  sensor:
+    build:
+      context: ./build/sensor
+      dockerfile: Dockerfile
+    container_name: ids-sensor
+    restart: unless-stopped
+    ports:
+      - "9999:9999"
+    environment:
+      - API_URL=http://ml_api:8000
+      - IDS_API_KEY=${IDS_API_KEY}
+      - CAPTURE_INTERFACE=eth0
+      - TARGET_IP=172.25.0.50
+      - LOGS_DIR=/app/logs
+    volumes:
+      - ./logs:/app/logs:rw
+    cap_drop: [ALL]
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    tmpfs:
+      - /tmp
+    depends_on:
+      ml_api:
+        condition: service_healthy
+    networks:
+      ids_network:
+        ipv4_address: 172.25.0.51
+    mem_limit: 512m
+    cpus: "1.0"
+    security_opt:
+      - no-new-privileges:true
+
+  # ── 6. Suricata (IDS rule-based, ET-Open, config empresarial) ─
+  # network_mode=host + interfaz explícita del bridge Docker.
+  # Config empresarial en configs/suricata/suricata.yaml:
+  #   - AF_PACKET tpacket-v3 + mmap zero-copy
+  #   - eve-log con 14 tipos de eventos (HTTP, TLS, DNS, DNP3, SMB, etc.)
+  #   - Stream reassembly 256 MB, flow table 128 MB
+  #   - JA3 fingerprints TLS, file extraction, anomaly detection
+  #   - Control plane via Unix socket
+  suricata:
+    image: jasonish/suricata:7.0
+    container_name: ids-suricata
+    restart: unless-stopped
+    user: "0:0"
+    network_mode: host
+    command: ["-c", "/etc/suricata/suricata.yaml", "-i", "br-b779538a33e1", "-l", "/var/log/suricata", "--runmode=workers", "-v"]
+    volumes:
+      - ./logs:/var/log/suricata:rw
+      - ./configs/suricata/suricata.yaml:/etc/suricata/suricata.yaml
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_NICE
+      - IPC_LOCK
+    mem_limit: 2048m
+    cpus: "2.0"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    healthcheck:
+      test: ["CMD-SHELL", "test -S /var/run/suricata/suricata-command.socket && pgrep -f 'suricata -c' >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  # ── 7. DVWA (target vulnerable) ────────────────────────────
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: ids-dvwa
+    restart: unless-stopped
+    environment:
+      - RECAPTCHA_PRIV_KEY=''
+      - RECAPTCHA_PUB_KEY=''
+      - SECURITY_LEVEL=low
+      - PHPIDS_ENABLED=0
+    networks:
+      ids_network:
+        ipv4_address: 172.25.0.50
+    mem_limit: 256m
+    cpus: "0.5"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+# ── Red interna ───────────────────────────────────────────────
+networks:
+  ids_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/24

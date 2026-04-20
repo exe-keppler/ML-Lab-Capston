@@ -1,0 +1,41 @@
+# Variables de entorno con credenciales
+.env
+configs/nginx/htpasswd
+
+# Logs runtime
+logs/
+*.log
+
+# Datasets (se montan en runtime, no se commitean)
+datasets/
+*.csv
+*.parquet
+*.pcap
+
+# Cachés de Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker build cache
+.docker-cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*_executed.ipynb

@@ -1,0 +1,299 @@
+{
+  "version": "v3",
+  "pipeline": "audited",
+  "dataset": "CICIDS2017 clean",
+  "n_features": 47,
+  "n_train": 1427665,
+  "n_val": 305931,
+  "n_test": 305938,
+  "binary": {
+    "train": {
+      "accuracy": 0.9980779804786137,
+      "f1_weighted": 0.998080876539171,
+      "f1_macro": 0.9965130982469171
+    },
+    "val": {
+      "accuracy": 0.9973981061088938,
+      "f1_weighted": 0.9973938251143358,
+      "f1_macro": 0.9952499343639876
+    },
+    "test": {
+      "accuracy": 0.9855199419490224,
+      "f1_weighted": 0.9852847207393397,
+      "f1_macro": 0.9728051111232014
+    },
+    "classification_report": {
+      "Benign": {
+        "precision": 0.9840077071290945,
+        "recall": 0.9989046669013809,
+        "f1-score": 0.9914002290683905,
+        "support": 255630.0
+      },
+      "Attack": {
+        "precision": 0.9939704552306301,
+        "recall": 0.9175081497972489,
+        "f1-score": 0.9542099931780125,
+        "support": 50308.0
+      },
+      "accuracy": 0.9855199419490224,
+      "macro avg": {
+        "precision": 0.9889890811798623,
+        "recall": 0.9582064083493149,
+        "f1-score": 0.9728051111232014,
+        "support": 305938.0
+      },
+      "weighted avg": {
+        "precision": 0.9856459669447829,
+        "recall": 0.9855199419490224,
+        "f1-score": 0.9852847207393397,
+        "support": 305938.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        255350,
+        280
+      ],
+      [
+        4150,
+        46158
+      ]
+    ],
+    "train_time_seconds": 61.615694522857666,
+    "params": {
+      "n_estimators": 150,
+      "max_depth": 15,
+      "min_samples_split": 10,
+      "min_samples_leaf": 10,
+      "max_features": "sqrt",
+      "class_weight": "balanced",
+      "random_state": 42,
+      "n_jobs": -1
+    }
+  },
+  "multiclass": {
+    "train": {
+      "accuracy": 0.9968711147222913,
+      "f1_weighted": 0.9970332163862706,
+      "f1_macro": 0.922682673575388
+    },
+    "val": {
+      "accuracy": 0.9976563342714534,
+      "f1_weighted": 0.9976835525798706,
+      "f1_macro": 0.9698877057267598
+    },
+    "test": {
+      "accuracy": 0.9853172865090313,
+      "f1_weighted": 0.9859258757678014,
+      "f1_macro": 0.875301784256821
+    },
+    "classification_report": {
+      "Benign": {
+        "precision": 0.9883495672253605,
+        "recall": 0.9979071314008527,
+        "f1-score": 0.9931053545428356,
+        "support": 255630.0
+      },
+      "Brute Force": {
+        "precision": 0.9902548725637181,
+        "recall": 0.968475073313783,
+        "f1-score": 0.9792438843587843,
+        "support": 1364.0
+      },
+      "DDoS": {
+        "precision": 0.9989040237983404,
+        "recall": 0.9967192626152164,
+        "f1-score": 0.9978104472943384,
+        "support": 19203.0
+      },
+      "DoS": {
+        "precision": 0.9882939859370704,
+        "recall": 0.8694705557091512,
+        "f1-score": 0.9250822716158329,
+        "support": 28936.0
+      },
+      "Reconnaissance": {
+        "precision": 0.2767052767052767,
+        "recall": 0.8739837398373984,
+        "f1-score": 0.4203323558162268,
+        "support": 492.0
+      },
+      "Web Attack": {
+        "precision": 0.9121212121212121,
+        "recall": 0.9616613418530351,
+        "f1-score": 0.9362363919129082,
+        "support": 313.0
+      },
+      "accuracy": 0.9853172865090313,
+      "macro avg": {
+        "precision": 0.8591048230584964,
+        "recall": 0.9447028507882395,
+        "f1-score": 0.875301784256821,
+        "support": 305938.0
+      },
+      "weighted avg": {
+        "precision": 0.9877928508312251,
+        "recall": 0.9853172865090313,
+        "f1-score": 0.9859258757678014,
+        "support": 305938.0
+      }
+    },
+    "confusion_matrix": [
+      [
+        255095,
+        10,
+        13,
+        295,
+        210,
+        7
+      ],
+      [
+        40,
+        1321,
+        0,
+        3,
+        0,
+        0
+      ],
+      [
+        60,
+        0,
+        19140,
+        0,
+        3,
+        0
+      ],
+      [
+        2839,
+        0,
+        8,
+        25159,
+        911,
+        19
+      ],
+      [
+        59,
+        0,
+        0,
+        0,
+        430,
+        3
+      ],
+      [
+        9,
+        3,
+        0,
+        0,
+        0,
+        301
+      ]
+    ],
+    "classes": [
+      "Benign",
+      "Brute Force",
+      "DDoS",
+      "DoS",
+      "Reconnaissance",
+      "Web Attack"
+    ],
+    "train_time_seconds": 57.107810735702515,
+    "params": {
+      "n_estimators": 150,
+      "max_depth": 15,
+      "min_samples_split": 10,
+      "min_samples_leaf": 10,
+      "max_features": "sqrt",
+      "class_weight": "balanced",
+      "random_state": 42,
+      "n_jobs": -1
+    }
+  },
+  "baselines_on_v3_split": {
+    "dummy_majority_f1_weighted": 0.7607077838868654,
+    "stump_depth1_f1_weighted": 0.9072635560593176,
+    "stump_feature": "Bwd_Packet_Length_Std",
+    "tree_depth3_f1_weighted": 0.9401056554222504
+  },
+  "feature_importance_gini_top20": [
+    {
+      "feature": "Fwd_Packet_Length_Mean",
+      "importance": 0.05945407790671505
+    },
+    {
+      "feature": "Bwd_Packet_Length_Mean",
+      "importance": 0.057961077075816686
+    },
+    {
+      "feature": "Packet_Length_Mean",
+      "importance": 0.05574687596632712
+    },
+    {
+      "feature": "Total_Length_of_Fwd_Packets",
+      "importance": 0.05472549119393375
+    },
+    {
+      "feature": "Fwd_Packet_Length_Max",
+      "importance": 0.05368514834650554
+    },
+    {
+      "feature": "Bwd_Packet_Length_Max",
+      "importance": 0.04787953223022321
+    },
+    {
+      "feature": "Total_Length_of_Bwd_Packets",
+      "importance": 0.04400495605189614
+    },
+    {
+      "feature": "Fwd_IAT_Std",
+      "importance": 0.04383759341285993
+    },
+    {
+      "feature": "Max_Packet_Length",
+      "importance": 0.04120452301525273
+    },
+    {
+      "feature": "Packet_Length_Std",
+      "importance": 0.03797137986372071
+    },
+    {
+      "feature": "Flow_IAT_Max",
+      "importance": 0.03771393180063224
+    },
+    {
+      "feature": "Bwd_Packet_Length_Std",
+      "importance": 0.034504089428300466
+    },
+    {
+      "feature": "Packet_Length_Variance",
+      "importance": 0.034402336687827266
+    },
+    {
+      "feature": "Total_Backward_Packets",
+      "importance": 0.0337318273201857
+    },
+    {
+      "feature": "act_data_pkt_fwd",
+      "importance": 0.02673547909495582
+    },
+    {
+      "feature": "min_seg_size_forward",
+      "importance": 0.02669823205104623
+    },
+    {
+      "feature": "Flow_IAT_Std",
+      "importance": 0.026688498909370455
+    },
+    {
+      "feature": "Flow_Duration",
+      "importance": 0.023500010281421176
+    },
+    {
+      "feature": "Fwd_IAT_Mean",
+      "importance": 0.022087166231395696
+    },
+    {
+      "feature": "Total_Fwd_Packets",
+      "importance": 0.020851899571705863
+    }
+  ]
+}
