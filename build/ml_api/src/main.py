@@ -67,14 +67,20 @@ def load_artifact(name: str):
     return joblib.load(p)
 
 # ── Carga de artefactos ──────────────────────────────────────
-logger.info("Cargando artefactos v1...")
-rf_binary = load_artifact("rf_binary_v1.joblib")
-rf_multi = load_artifact("rf_multiclass_v1.joblib")
-scaler = load_artifact("scaler_v1.joblib")
-label_encoder = load_artifact("label_encoder_v1.joblib")
-feature_names = load_artifact("feature_names_v1.joblib")
+# v2 es la versión activa (RF tuned exportado en notebook 06).
+# Las features (47), categorías (6) y schema son idénticas a v1, solo
+# cambian los hyperparámetros (min_samples_leaf=5, balanced_subsample).
+# manifest.json apunta a los artefactos v2; manifest_v1.json queda como
+# snapshot histórico.
+MODEL_VERSION = os.environ.get("MODEL_VERSION", "v2")
+logger.info(f"Cargando artefactos {MODEL_VERSION}...")
+rf_binary = load_artifact(f"rf_binary_{MODEL_VERSION}.joblib")
+rf_multi = load_artifact(f"rf_multiclass_{MODEL_VERSION}.joblib")
+scaler = load_artifact(f"scaler_{MODEL_VERSION}.joblib")
+label_encoder = load_artifact(f"label_encoder_{MODEL_VERSION}.joblib")
+feature_names = load_artifact(f"feature_names_{MODEL_VERSION}.joblib")
 
-metrics_path = MODEL_DIR / "metrics_v1.json"
+metrics_path = MODEL_DIR / f"metrics_{MODEL_VERSION}.json"
 model_metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
 
 logger.info(f"  OK. Features: {len(feature_names)}, categorías: {list(label_encoder.classes_)}")
@@ -95,7 +101,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[RATE_LIMIT])
 
 # ── App ──────────────────────────────────────────────────────
 app = FastAPI(title="IDS-ML API", version="3.0.0",
-              description="Detección de intrusiones con RF v1 — Arquitectura v2 UDLA")
+              description=f"Detección de intrusiones con RF {MODEL_VERSION} — Arquitectura v2 UDLA")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -127,7 +133,7 @@ class BatchInput(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "3.0.0", "model": "v1",
+    return {"status": "ok", "version": "3.0.0", "model": MODEL_VERSION,
             "n_features": len(feature_names),
             "categories": list(label_encoder.classes_),
             "integrity": "verified" if manifest else "unverified"}
