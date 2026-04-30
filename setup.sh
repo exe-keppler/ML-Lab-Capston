@@ -125,6 +125,22 @@ fi
 export SURICATA_INTERFACE
 
 # ─────────────────────────────────────────────────────────────
+# 4b. HOST_IP (para los link_button del dashboard a Grafana,
+#     Jupyter, DVWA y Sensor desde el browser del usuario)
+# ─────────────────────────────────────────────────────────────
+if [ -z "${HOST_IP:-}" ]; then
+    DETECTED_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+    HOST_IP="${DETECTED_IP:-localhost}"
+    ok "HOST_IP detectado: $HOST_IP"
+fi
+if grep -q '^HOST_IP=' .env; then
+    sed -i.bak "s|^HOST_IP=.*|HOST_IP=$HOST_IP|" .env && rm -f .env.bak
+else
+    echo "HOST_IP=$HOST_IP" >> .env
+fi
+export HOST_IP
+
+# ─────────────────────────────────────────────────────────────
 # 5. Directorios runtime
 # ─────────────────────────────────────────────────────────────
 mkdir -p logs datasets

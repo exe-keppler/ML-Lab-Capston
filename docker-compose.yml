@@ -75,6 +75,7 @@ services:
       - IDS_API_KEY=${IDS_API_KEY}
       - LOGS_DIR=/app/logs
       - DATASETS_DIR=/app/datasets
+      - HOST_IP=${HOST_IP:-localhost}
     volumes:
       - ./logs:/app/logs:rw
       - ./datasets:/app/datasets:ro

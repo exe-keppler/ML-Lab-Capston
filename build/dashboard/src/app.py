@@ -30,7 +30,7 @@ LOGS_DIR = os.environ.get("LOGS_DIR", "/app/logs")
 DATASETS_DIR = os.environ.get("DATASETS_DIR", "/app/datasets")
 SENSOR_URL = os.environ.get("SENSOR_URL", "http://sensor:9999")
 DVWA_URL = os.environ.get("DVWA_URL", "http://dvwa")
-HOST_IP = os.environ.get("HOST_IP", "192.168.0.126")
+HOST_IP = os.environ.get("HOST_IP", "localhost")
 
 SENSOR_PREDICTIONS_PATH = os.path.join(LOGS_DIR, "sensor_predictions.jsonl")
 LAB_HISTORY_PATH = os.path.join(LOGS_DIR, "lab_history.jsonl")
