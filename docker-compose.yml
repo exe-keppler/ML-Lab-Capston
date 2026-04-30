@@ -104,7 +104,6 @@ services:
       - ./models:/home/app/models:rw
       - ./datasets:/home/app/datasets:ro
       - ./logs:/home/app/logs:rw
-      - ./notebooks:/home/app/notebooks:rw
     depends_on:
       ml_api:
         condition: service_healthy
@@ -133,6 +132,8 @@ services:
       - LOGS_DIR=/app/logs
     volumes:
       - ./logs:/app/logs:rw
+      - ./datasets:/app/datasets:ro
+      - ./models:/app/models:ro
     cap_drop: [ALL]
     cap_add:
       - NET_ADMIN
@@ -191,22 +192,96 @@ services:
 
   # ── 7. DVWA (target vulnerable) ────────────────────────────
   dvwa:
-    image: vulnerables/web-dvwa:latest
+    image: sagikazarmark/dvwa:latest
     container_name: ids-dvwa
     restart: unless-stopped
-    environment:
-      - RECAPTCHA_PRIV_KEY=''
-      - RECAPTCHA_PUB_KEY=''
-      - SECURITY_LEVEL=low
-      - PHPIDS_ENABLED=0
+    ports:
+      - "8080:80"
     networks:
       ids_network:
         ipv4_address: 172.25.0.50
     mem_limit: 256m
     cpus: "0.5"
+
+  dvwa-db:
+    image: mariadb:10.11
+    container_name: ids-dvwa-db
+    restart: unless-stopped
+    user: "999:999"
+    environment:
+      - MARIADB_ROOT_PASSWORD=dvwa
+      - MARIADB_DATABASE=dvwa
+      - MARIADB_USER=dvwa
+      - MARIADB_PASSWORD=p@ssw0rd
+    networks:
+      ids_network:
+        ipv4_address: 172.25.0.49
+    mem_limit: 256m
+    cpus: "0.5"
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
+
+  # ── 8. Loki (log aggregator) ───────────────────────────────
+  loki:
+    image: grafana/loki:2.9.10
+    container_name: ids-loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./configs/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - ids_network
+    mem_limit: 512m
+    cpus: "0.5"
+
+  # ── 9. Promtail (log shipper) ──────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.10
+    container_name: ids-promtail
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./configs/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - ./logs:/logs:ro
+    depends_on:
+      - loki
+    networks:
+      - ids_network
+    mem_limit: 128m
+    cpus: "0.25"
+
+  # ── 10. Grafana (dashboards tiempo real) ────────────────────
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: ids-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-ids2026}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_INSTALL_PLUGINS=
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    volumes:
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./configs/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - loki
+    networks:
+      - ids_network
+    mem_limit: 256m
+    cpus: "0.5"
+
+# ── Volúmenes persistentes ────────────────────────────────────
+volumes:
+  loki_data:
+  grafana_data:
 
 # ── Red interna ───────────────────────────────────────────────
 networks:

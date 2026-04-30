@@ -1,0 +1,90 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # ── Suricata eve.json (alertas + flows + http + dns + stats) ──
+  - job_name: suricata
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: suricata
+          __path__: /logs/eve.json
+    pipeline_stages:
+      - json:
+          expressions:
+            event_type: event_type
+            timestamp: timestamp
+            src_ip: src_ip
+            dest_ip: dest_ip
+            src_port: src_port
+            dest_port: dest_port
+            proto: proto
+            alert_signature: alert.signature
+            alert_category: alert.category
+            alert_severity: alert.severity
+            alert_gid: alert.gid
+            alert_sid: alert.signature_id
+      - labels:
+          event_type:
+          alert_severity:
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+
+  # ── ML Sensor predictions (cada flow clasificado) ──
+  - job_name: ml_predictions
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: ml_predictions
+          __path__: /logs/sensor_predictions.jsonl
+    pipeline_stages:
+      - json:
+          expressions:
+            request_id: request_id
+            timestamp: timestamp
+            src_ip: src_ip
+            dst_ip: dst_ip
+            src_port: src_port
+            dst_port: dst_port
+            protocol: protocol
+            category: category
+            confidence: confidence
+            is_attack: is_attack
+            n_packets: n_packets
+      - labels:
+          category:
+          is_attack:
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+
+  # ── Lab history (cada captura agregada) ──
+  - job_name: lab_history
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: lab_history
+          __path__: /logs/lab_history.jsonl
+    pipeline_stages:
+      - json:
+          expressions:
+            capture_id: capture_id
+            timestamp: timestamp
+            attack_type: attack_type
+            ml_attacks: ml_summary.attacks
+            suricata_alerts: suricata_summary.alerts
+            agreement_rate: correlation_stats.agreement_rate
+      - labels:
+          attack_type:
+      - timestamp:
+          source: timestamp
+          format: RFC3339

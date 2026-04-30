@@ -1,0 +1,544 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 3, "w": 24, "x": 0, "y": 0},
+      "id": 100,
+      "type": "text",
+      "options": {
+        "content": "## 🛡️ IDS-ML Lab — Overview v2\n\n**Stack:** Suricata (rule-based, ET-Open ~50k reglas) + Random Forest v3 (47 features, F1-macro 0.875) | Dashboard alimentado por Loki (eve.json + sensor_predictions.jsonl + lab_history.jsonl) | Auto-refresh 10s",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.2.3",
+      "title": "",
+      "transparent": true
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 500}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 3},
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum(count_over_time({job=\"suricata\", event_type=\"alert\"}[$__range]))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "🚨 Alertas Suricata",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 10},
+              {"color": "red", "value": 100}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 3},
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum(count_over_time({job=\"ml_predictions\", is_attack=\"true\"}[$__range]))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "🔴 ML: flujos ATAQUE",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 3},
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum(count_over_time({job=\"ml_predictions\"}[$__range]))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "📊 Total ML procesados",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 10}
+            ]
+          },
+          "unit": "ops"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 3},
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "reduceOptions": {"calcs": ["mean"]},
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum(rate({job=\"suricata\", event_type=\"alert\"}[1m]))",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "⚡ Alertas Suricata / seg",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "orange", "value": 40},
+              {"color": "green", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 3},
+      "id": 5,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "(sum(count_over_time({job=\"ml_predictions\", is_attack=\"false\"}[$__range])) + sum(count_over_time({job=\"suricata\", event_type=\"alert\", alert_severity=~\"3|2\"}[$__range]))) / (sum(count_over_time({job=\"ml_predictions\"}[$__range])) + sum(count_over_time({job=\"suricata\", event_type=\"alert\"}[$__range]))) * 100",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Ratio benigno / total (%)",
+      "type": "gauge"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "showPoints": "auto",
+            "stacking": {"mode": "none"}
+          }
+        }
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 7},
+      "id": 6,
+      "options": {
+        "legend": {"calcs": ["sum", "max"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by(alert_severity) (count_over_time({job=\"suricata\", event_type=\"alert\"}[$__interval]))",
+          "legendFormat": "Severidad {{alert_severity}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "📈 Timeline — Alertas Suricata por severidad",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {"mode": "normal"}
+          }
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Benign"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "DDoS"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "DoS"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Brute Force"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Reconnaissance"}, "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Web Attack"}, "properties": [{"id": "color", "value": {"fixedColor": "dark-red", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 7},
+      "id": 7,
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by(category) (count_over_time({job=\"ml_predictions\"}[$__interval]))",
+          "legendFormat": "{{category}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "🤖 Timeline — Clasificaciones ML por categoría",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "continuous-GrYlRd"},
+          "custom": {"align": "auto", "inspect": false}
+        }
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 16},
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {"show": false},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Count"}]
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "topk(15, sum by(alert_signature) (count_over_time({job=\"suricata\", event_type=\"alert\"} | json | alert_signature != \"\" [$__range])))",
+          "format": "table",
+          "instant": true,
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "🔝 Top 15 firmas Suricata disparadas",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true},
+            "renameByName": {"Value": "Count", "alert_signature": "Firma"}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "continuous-BlPu"},
+          "custom": {"align": "auto", "inspect": false}
+        }
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 16},
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {"show": false},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Count"}]
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "topk(10, sum by(src_ip) (count_over_time({job=\"suricata\", event_type=\"alert\"} | json | src_ip != \"\" [$__range])))",
+          "format": "table",
+          "instant": true,
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "🎯 Top 10 IPs origen (atacantes)",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true},
+            "renameByName": {"Value": "Alertas", "src_ip": "Source IP"}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "mappings": []
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Benign"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "DDoS"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "DoS"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Brute Force"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Reconnaissance"}, "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "Web Attack"}, "properties": [{"id": "color", "value": {"fixedColor": "dark-red", "mode": "fixed"}}]}
+        ]
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 26},
+      "id": 10,
+      "options": {
+        "displayLabels": ["name", "percent", "value"],
+        "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["sum"]},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by(category) (count_over_time({job=\"ml_predictions\"}[$__range]))",
+          "legendFormat": "{{category}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "🧩 Distribución ML",
+      "type": "piechart"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "mappings": []
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 26},
+      "id": 11,
+      "options": {
+        "displayLabels": ["name", "value"],
+        "legend": {"displayMode": "table", "placement": "right", "values": ["value"]},
+        "pieType": "pie",
+        "reduceOptions": {"calcs": ["sum"]},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by(alert_severity) (count_over_time({job=\"suricata\", event_type=\"alert\"}[$__range]))",
+          "legendFormat": "Sev {{alert_severity}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "🚦 Severidad Suricata",
+      "type": "piechart"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "continuous-GrYlRd"},
+          "custom": {"align": "auto", "inspect": false}
+        }
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 26},
+      "id": 12,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {"show": false},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Alertas"}]
+      },
+      "pluginVersion": "10.2.3",
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "topk(10, sum by(alert_category) (count_over_time({job=\"suricata\", event_type=\"alert\"} | json | alert_category != \"\" [$__range])))",
+          "format": "table",
+          "instant": true,
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "📂 Top categorías Suricata",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true},
+            "renameByName": {"Value": "Alertas", "alert_category": "Categoría"}
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34},
+      "id": 13,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "{job=\"suricata\", event_type=\"alert\"} | json | line_format \"[sev {{.alert_severity}}] {{.src_ip}}:{{.src_port}} -> {{.dest_ip}}:{{.dest_port}}  ::  {{.alert_signature}}\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "🔴 Stream en vivo — Alertas Suricata",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 44},
+      "id": 14,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "{job=\"ml_predictions\"} | json | line_format \"[{{.category}} conf={{.confidence}}] {{.src_ip}}:{{.src_port}} -> {{.dst_ip}}:{{.dst_port}} proto={{.protocol}}  ::  req={{.request_id}}\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "🤖 Stream en vivo — Predicciones ML",
+      "type": "logs"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "loki"},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 54},
+      "id": 15,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "{job=\"lab_history\"} | json | line_format \"[{{.attack_type}}] cap={{.capture_id}}  ::  ML ataques={{.ml_attacks}} / Suricata alertas={{.suricata_alerts}} / acuerdo={{.agreement_rate}}\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "📜 Historial de capturas (snapshots)",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["ids", "ml", "suricata", "lab", "v2"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "IDS-ML Lab — Overview v2",
+  "uid": "ids-ml-overview-v2",
+  "version": 1,
+  "weekStart": ""
+}

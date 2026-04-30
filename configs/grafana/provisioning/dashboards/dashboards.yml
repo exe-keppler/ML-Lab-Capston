@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: IDS-ML
+    orgId: 1
+    folder: IDS-ML Lab
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 15
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
+      foldersFromFilesStructure: false

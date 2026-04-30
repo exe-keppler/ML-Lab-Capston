@@ -1,6 +1,17 @@
 # Variables de entorno con credenciales
 .env
+.env.bak_*
 configs/nginx/htpasswd
+
+# Credenciales / secretos sueltos
+takens.txt
+*.kaggle.json
+**/kaggle.json
+*_credentials.txt
+*.pem
+*.key
+id_rsa*
+id_ed25519*
 
 # Logs runtime
 logs/
@@ -32,6 +43,15 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+nul
+
+# Backups
+*.bak
+*.bak_*
+docker-compose.yml.bak_*
+
+# Claude Code metadata
+.claude/
 
 # Docker build cache
 .docker-cache/
