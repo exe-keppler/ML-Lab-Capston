@@ -80,6 +80,17 @@ scaler = load_artifact(f"scaler_{MODEL_VERSION}.joblib")
 label_encoder = load_artifact(f"label_encoder_{MODEL_VERSION}.joblib")
 feature_names = load_artifact(f"feature_names_{MODEL_VERSION}.joblib")
 
+# XGBoost opcional — solo v2+ tiene xgb_*.joblib en el manifest.
+xgb_binary = None
+xgb_multi = None
+if f"xgb_binary_{MODEL_VERSION}.joblib" in manifest:
+    try:
+        xgb_binary = load_artifact(f"xgb_binary_{MODEL_VERSION}.joblib")
+        xgb_multi = load_artifact(f"xgb_multiclass_{MODEL_VERSION}.joblib")
+        logger.info(f"  XGBoost {MODEL_VERSION} cargado (endpoint /predict?model=xgb).")
+    except Exception as e:
+        logger.warning(f"  XGBoost no disponible: {e}")
+
 metrics_path = MODEL_DIR / f"metrics_{MODEL_VERSION}.json"
 model_metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
 
@@ -136,23 +147,39 @@ def health():
     return {"status": "ok", "version": "3.0.0", "model": MODEL_VERSION,
             "n_features": len(feature_names),
             "categories": list(label_encoder.classes_),
-            "integrity": "verified" if manifest else "unverified"}
+            "integrity": "verified" if manifest else "unverified",
+            "available_models": ["rf"] + (["xgb"] if xgb_multi is not None else [])}
+
+
+def _resolve_models(model: str):
+    """Devuelve (binary, multi) según el query param model=rf|xgb. Default rf."""
+    m = (model or "rf").lower()
+    if m == "rf":
+        return rf_binary, rf_multi
+    if m == "xgb":
+        if xgb_multi is None:
+            raise HTTPException(400, "XGBoost no disponible (no hay xgb_*.joblib en manifest)")
+        return xgb_binary, xgb_multi
+    raise HTTPException(400, f"model debe ser 'rf' o 'xgb', got '{model}'")
+
 
 @app.post("/predict", dependencies=[Depends(require_api_key)])
 @limiter.limit(RATE_LIMIT)
-def predict(request: Request, flow: FlowInput):
+def predict(request: Request, flow: FlowInput, model: str = "rf"):
     t0 = time.perf_counter()
     _validate(flow.features)
+    bin_clf, mc_clf = _resolve_models(model)
     X = np.array(flow.features).reshape(1, -1)
     X_s = scaler.transform(X)
-    bin_pred = int(rf_binary.predict(X_s)[0])
-    bin_proba = rf_binary.predict_proba(X_s)[0]
-    mc_pred = rf_multi.predict(X_s)[0]
-    mc_proba = rf_multi.predict_proba(X_s)[0]
+    bin_pred = int(bin_clf.predict(X_s)[0])
+    bin_proba = bin_clf.predict_proba(X_s)[0]
+    mc_pred = mc_clf.predict(X_s)[0]
+    mc_proba = mc_clf.predict_proba(X_s)[0]
     category = label_encoder.inverse_transform([mc_pred])[0]
     mitre = get_mitre_info(category)
     elapsed = (time.perf_counter() - t0) * 1000
     return {
+        "model": model,
         "is_attack": bool(bin_pred),
         "attack_confidence": round(float(bin_proba[1]), 4),
         "category": category,
@@ -164,7 +191,7 @@ def predict(request: Request, flow: FlowInput):
 
 @app.post("/predict/batch", dependencies=[Depends(require_api_key)])
 @limiter.limit(RATE_LIMIT)
-def predict_batch(request: Request, batch: BatchInput):
+def predict_batch(request: Request, batch: BatchInput, model: str = "rf"):
     t0 = time.perf_counter()
     if not batch.flows:
         raise HTTPException(400, "Empty batch")
@@ -172,12 +199,13 @@ def predict_batch(request: Request, batch: BatchInput):
         raise HTTPException(400, f"Max batch size is {MAX_BATCH_SIZE}")
     for i, f in enumerate(batch.flows):
         _validate(f, i)
+    bin_clf, mc_clf = _resolve_models(model)
     X = np.array(batch.flows)
     X_s = scaler.transform(X)
-    bin_preds = rf_binary.predict(X_s)
-    bin_probas = rf_binary.predict_proba(X_s)
-    mc_preds = rf_multi.predict(X_s)
-    mc_probas = rf_multi.predict_proba(X_s)
+    bin_preds = bin_clf.predict(X_s)
+    bin_probas = bin_clf.predict_proba(X_s)
+    mc_preds = mc_clf.predict(X_s)
+    mc_probas = mc_clf.predict_proba(X_s)
     categories = label_encoder.inverse_transform(mc_preds)
     results = []
     for i in range(len(batch.flows)):
@@ -195,6 +223,7 @@ def predict_batch(request: Request, batch: BatchInput):
         cat_dist[r["category"]] = cat_dist.get(r["category"], 0) + 1
     elapsed = (time.perf_counter() - t0) * 1000
     return {
+        "model": model,
         "total": len(results), "attacks": attack_count, "benign": len(results) - attack_count,
         "categories": cat_dist, "timestamp": datetime.now(timezone.utc).isoformat(),
         "processing_time_ms": round(elapsed, 2), "predictions": results,
