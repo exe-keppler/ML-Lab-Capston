@@ -596,47 +596,67 @@ def do_capture(duration, attack_type, intensity, request_id=None):
                 flows_data.append({'total_fwd_packets': 100, 'total_bwd_packets': 10})
             print(f"[Sensor] Total: {len(model_inputs)} flujos (capturados + {len(injected_flows)} inyectados)")
 
-        # Enviar a API ML (prueba /predict/batch y fallback /api/v1/predict/batch)
+        # Enviar a API ML — llamamos AMBOS modelos (rf y xgb) si están disponibles,
+        # para que las dashboards SOC de Grafana tengan stream propio por modelo.
         print(f"[Sensor] Enviando {len(model_inputs)} flujos a {API_URL}...")
-        all_preds = []
-        # Detectar endpoint correcto probando con batch vacío una vez
-        predict_path = '/predict/batch'
+
+        # Detectar modelos disponibles
+        models_to_query = ['rf']
         try:
-            probe = httpx.post(f'{API_URL}{predict_path}', headers=API_HEADERS,
-                               json={'flows': [model_inputs[0]] if model_inputs else []},
-                               timeout=10)
-            if probe.status_code in (401, 403, 404, 405):
-                predict_path = '/api/v1/predict/batch'
+            h = httpx.get(f'{API_URL}/health', timeout=5).json()
+            models_to_query = h.get('available_models', ['rf'])
         except Exception:
             pass
+        print(f"[Sensor] Modelos a consultar: {models_to_query}")
 
-        for i in range(0, len(model_inputs), 100):
-            batch = model_inputs[i:i + 100]
-            try:
-                resp = httpx.post(f'{API_URL}{predict_path}', headers=API_HEADERS,
-                                  json={'flows': batch}, timeout=30)
-                if resp.status_code == 200:
-                    all_preds.extend(resp.json().get('predictions', []))
-                else:
-                    print(f"[Sensor] ML API {predict_path} HTTP {resp.status_code}: {resp.text[:120]}")
-            except Exception as e:
-                print(f"[Sensor] Error batch: {e}")
-
-        # Enriquecer
-        enriched = []
-        for j, pred in enumerate(all_preds):
-            if j < len(flow_metadata):
-                pred.update(flow_metadata[j])
+        # all_preds_by_model: dict[modelo -> list(predictions)]
+        all_preds_by_model = {m: [] for m in models_to_query}
+        for model_name in models_to_query:
+            predict_path = f'/predict/batch?model={model_name}'
+            for i in range(0, len(model_inputs), 100):
+                batch = model_inputs[i:i + 100]
                 try:
-                    fwd = flows_data[j].get('total_fwd_packets', flows_data[j].get('Total Fwd Packets', 0))
-                    bwd = flows_data[j].get('total_bwd_packets', flows_data[j].get('Total Backward Packets', 0))
-                    pred['n_packets'] = int(float(fwd)) + int(float(bwd))
-                except:
-                    pred['n_packets'] = 0
-            # Guardar features originales para XAI
-            if j < len(model_inputs):
-                pred['_features'] = model_inputs[j]
-            enriched.append(pred)
+                    resp = httpx.post(f'{API_URL}{predict_path}', headers=API_HEADERS,
+                                      json={'flows': batch}, timeout=30)
+                    if resp.status_code == 200:
+                        all_preds_by_model[model_name].extend(resp.json().get('predictions', []))
+                    else:
+                        print(f"[Sensor] ML API {predict_path} HTTP {resp.status_code}: {resp.text[:120]}")
+                except Exception as e:
+                    print(f"[Sensor] Error batch ({model_name}): {e}")
+
+        # Para mantener compat con código existente, all_preds = predicciones del RF
+        # (es el "default" del lab). El stream del XGBoost se suma como entradas
+        # adicionales en sensor_predictions.jsonl con el campo `model`.
+        all_preds = all_preds_by_model.get('rf', [])
+
+        # Enriquecer cada prediccion con metadata + tag model.
+        # `enriched` (RF) se usa para el campo 'predictions' de la respuesta API.
+        # `enriched_all` (rf + xgb) se persiste en sensor_predictions.jsonl —
+        # cada entrada tiene un campo `model: 'rf'|'xgb'` que Loki indexa.
+        def _enrich(preds, model_name):
+            out = []
+            for j, pred in enumerate(preds):
+                pred = dict(pred)
+                pred['model'] = model_name
+                if j < len(flow_metadata):
+                    pred.update(flow_metadata[j])
+                    try:
+                        fwd = flows_data[j].get('total_fwd_packets', flows_data[j].get('Total Fwd Packets', 0))
+                        bwd = flows_data[j].get('total_bwd_packets', flows_data[j].get('Total Backward Packets', 0))
+                        pred['n_packets'] = int(float(fwd)) + int(float(bwd))
+                    except:
+                        pred['n_packets'] = 0
+                if j < len(model_inputs):
+                    pred['_features'] = model_inputs[j]
+                out.append(pred)
+            return out
+
+        enriched = _enrich(all_preds_by_model.get('rf', []), 'rf')
+        enriched_all = list(enriched)
+        for m in models_to_query:
+            if m != 'rf':
+                enriched_all.extend(_enrich(all_preds_by_model.get(m, []), m))
 
         attacks = [p for p in enriched if p.get('is_attack')]
         cat_dist = {}
@@ -660,8 +680,9 @@ def do_capture(duration, attack_type, intensity, request_id=None):
                 'category_distribution': cat_dist,
             },
         }
-        # Persistir cada prediccion con request_id + 5-tupla para correlacion
-        write_predictions_jsonl(request_id, enriched, window_start, window_end)
+        # Persistir TODAS las predicciones (rf + xgb) con request_id + 5-tupla
+        # para correlacion. Los dashboards SOC de Grafana filtran por `model`.
+        write_predictions_jsonl(request_id, enriched_all, window_start, window_end)
         print(f"[Sensor] OK: {len(enriched)} flujos, {len(attacks)} ataques (CICFlowMeter) req={request_id}")
 
     except Exception as e:
