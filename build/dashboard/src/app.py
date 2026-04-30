@@ -1,4 +1,4 @@
-"""Dashboard IDS-ML v1 — IA aplicada a Ciberseguridad (lab educativo).
+"""Dashboard IDS-ML v2 — IA aplicada a Ciberseguridad (lab educativo).
 
 Stakeholders: estudiantes de ciberseguridad aprendiendo ML.
 
@@ -402,7 +402,7 @@ def run_http_attacks(categories):
 # ═══════════════════════════════════════════════════════════════
 st.set_page_config(page_title="IDS-ML Lab UDLA", layout="wide", page_icon="")
 st.title("IDS-ML Educational Lab")
-st.caption("IA aplicada a Ciberseguridad · Random Forest v1 + Suricata ET-Open · UDLA Capstone 2026")
+st.caption("IA aplicada a Ciberseguridad · Random Forest v2 + Suricata ET-Open · UDLA Capstone 2026")
 
 col1, col2, col3 = st.columns(3)
 try:
@@ -600,7 +600,7 @@ with tab_dataset:
 # TAB 3: Métricas del modelo
 # ═══════════════════════════════════════════════════════════════
 with tab_metrics:
-    st.header("Rendimiento del modelo v1")
+    st.header("Rendimiento del modelo v2")
 
     m = fetch_metrics()
     if not m:
@@ -699,7 +699,7 @@ with tab_metrics:
             st.warning(
                 f"**Clase más débil**: `{worst_class}` con recall {worst_recall:.0%}. "
                 f"Se confunde principalmente con `{confused_with}`. "
-                f"(9 features backward están imputadas con 0 en nuestro parquet.)"
+                f"(El parquet bundleado tiene cobertura 47/47 de las features del modelo.)"
             )
 
     st.divider()
@@ -740,7 +740,7 @@ with tab_metrics:
             {"Modelo": "Árbol depth=3",
              "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
              "Descripción": "Árbol pequeño; referencia interpretable."},
-            {"Modelo": "RF v1 (150 árboles)",
+            {"Modelo": "RF v2 (200 árboles, tuned)",
              "F1-w": round(bin_t.get("f1_weighted", 0), 4),
              "Descripción": "Modelo de producción del lab."},
         ])
@@ -844,7 +844,7 @@ with tab_pred:
         features[feat_idx] = new_val
 
     st.subheader("Paso 3 — Clasificar")
-    if st.button("Clasificar con el modelo v1", type="primary", use_container_width=True):
+    if st.button("Clasificar con el modelo v2", type="primary", use_container_width=True):
         try:
             resp = requests.post(
                 f"{API_URL}/predict",
@@ -970,7 +970,7 @@ with tab_attack:
     st.caption(
         "POST a `/capture/start` del sensor. El sensor genera tráfico con scapy, "
         "captura, extrae 47 features con CICFlowMeter, inyecta flujos reales del "
-        "CICIDS2017 y clasifica con el modelo v1. Escribe en "
+        "CICIDS2017 y clasifica con el modelo v2. Escribe en "
         "`sensor_predictions.jsonl` (visible en Grafana)."
     )
 
@@ -1329,7 +1329,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
 st.markdown("---")
 st.caption(
     "Maestría en IA Aplicada · UDLA 2026 · "
-    f"Dashboard v1 · [Grafana](http://{HOST_IP}:3000) · "
+    f"Dashboard v2 · [Grafana](http://{HOST_IP}:3000) · "
     f"[Jupyter](http://{HOST_IP}:8888) · "
     f"[DVWA](http://{HOST_IP}:8080)"
 )

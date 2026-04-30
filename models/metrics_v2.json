@@ -9,7 +9,7 @@
     "Reconnaissance",
     "Web Attack"
   ],
-  "n_train": 42516,
+  "n_train": 30000,
   "n_test": 347072,
   "rf": {
     "best_params": {
@@ -153,5 +153,173 @@
         "support": 347072.0
       }
     }
-  }
+  },
+  "pipeline": "audited (v2 \u2014 RF tuned + scaling consistente)",
+  "n_features": 47,
+  "n_val": 347071,
+  "binary": {
+    "train": {
+      "f1_weighted": 0.9946535154007067,
+      "f1_macro": 0.9893747835565867
+    },
+    "val": {
+      "f1_weighted": 0.9950175256030817,
+      "f1_macro": 0.9900167145321419
+    },
+    "test": {
+      "f1_weighted": 0.9950486935404507,
+      "f1_macro": 0.9900776396580329
+    }
+  },
+  "multiclass": {
+    "test": {
+      "f1_weighted": 0.9712081982066608,
+      "f1_macro": 0.6751183146111068
+    },
+    "classification_report": {
+      "Benign": {
+        "precision": 0.9992272520084325,
+        "recall": 0.9460519217801753,
+        "f1-score": 0.9719127977056403,
+        "support": 296600.0
+      },
+      "Brute Force": {
+        "precision": 0.8330252618607517,
+        "recall": 0.9854227405247813,
+        "f1-score": 0.9028380634390651,
+        "support": 1372.0
+      },
+      "DDoS": {
+        "precision": 0.9963105383496155,
+        "recall": 0.9984897406520155,
+        "f1-score": 0.9973989491754669,
+        "support": 19202.0
+      },
+      "DoS": {
+        "precision": 0.9585828343313373,
+        "recall": 0.9914327002477291,
+        "f1-score": 0.9747310736756647,
+        "support": 29064.0
+      },
+      "Reconnaissance": {
+        "precision": 0.0669583664810395,
+        "recall": 0.9844054580896686,
+        "f1-score": 0.12538795779019243,
+        "support": 513.0
+      },
+      "Web Attack": {
+        "precision": 0.040837292924104276,
+        "recall": 0.9906542056074766,
+        "f1-score": 0.07844104588061174,
+        "support": 321.0
+      },
+      "accuracy": 0.9530068688917573,
+      "macro avg": {
+        "precision": 0.64915692432588,
+        "recall": 0.9827427944836411,
+        "f1-score": 0.6751183146111068,
+        "support": 347072.0
+      },
+      "weighted avg": {
+        "precision": 0.9927409254345001,
+        "recall": 0.9530068688917573,
+        "f1-score": 0.9712081982066608,
+        "support": 347072.0
+      }
+    }
+  },
+  "baselines_on_v2_split": {
+    "dummy_majority_f1_weighted": 0.7875511139754202,
+    "stump_feature": "Fwd_Packet_Length_Mean",
+    "stump_depth1_f1_weighted": 0.9551858372670277,
+    "tree_depth3_f1_weighted": 0.9766198334790825
+  },
+  "baselines_on_v1_split": {
+    "dummy_majority_f1_weighted": 0.7875511139754202,
+    "stump_feature": "Fwd_Packet_Length_Mean",
+    "stump_depth1_f1_weighted": 0.9551858372670277,
+    "tree_depth3_f1_weighted": 0.9766198334790825
+  },
+  "feature_importance_gini_top20": [
+    {
+      "feature": "Fwd_Packet_Length_Mean",
+      "importance": 0.056888
+    },
+    {
+      "feature": "Total_Length_of_Fwd_Packets",
+      "importance": 0.055349
+    },
+    {
+      "feature": "Bwd_Packet_Length_Mean",
+      "importance": 0.049582
+    },
+    {
+      "feature": "Fwd_Packet_Length_Max",
+      "importance": 0.048238
+    },
+    {
+      "feature": "Packet_Length_Mean",
+      "importance": 0.046784
+    },
+    {
+      "feature": "Fwd_IAT_Std",
+      "importance": 0.04453
+    },
+    {
+      "feature": "Total_Length_of_Bwd_Packets",
+      "importance": 0.044224
+    },
+    {
+      "feature": "Total_Backward_Packets",
+      "importance": 0.043398
+    },
+    {
+      "feature": "Max_Packet_Length",
+      "importance": 0.037492
+    },
+    {
+      "feature": "Flow_IAT_Max",
+      "importance": 0.03584
+    },
+    {
+      "feature": "Bwd_Packet_Length_Max",
+      "importance": 0.035002
+    },
+    {
+      "feature": "Bwd_Packet_Length_Std",
+      "importance": 0.034996
+    },
+    {
+      "feature": "Flow_IAT_Std",
+      "importance": 0.034151
+    },
+    {
+      "feature": "Packet_Length_Std",
+      "importance": 0.031094
+    },
+    {
+      "feature": "Packet_Length_Variance",
+      "importance": 0.030839
+    },
+    {
+      "feature": "act_data_pkt_fwd",
+      "importance": 0.028708
+    },
+    {
+      "feature": "Fwd_IAT_Mean",
+      "importance": 0.025079
+    },
+    {
+      "feature": "Total_Fwd_Packets",
+      "importance": 0.023204
+    },
+    {
+      "feature": "PSH_Flag_Count",
+      "importance": 0.022575
+    },
+    {
+      "feature": "Flow_Duration",
+      "importance": 0.022453
+    }
+  ]
 }
