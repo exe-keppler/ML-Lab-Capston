@@ -106,13 +106,27 @@ El tab **"Suricata vs ML"** del dashboard muestra:
 - **Grafana** consume Loki como datasource con dashboards provisionados en `configs/grafana/`.
 - Útil para ver volumen de alertas, top firmas, ratio attack/benign en tiempo real.
 
-### Evaluación adversarial
+### Notebooks (paso a paso del modelo)
 
-Notebook [notebooks/01_adversarial_evasion.ipynb](notebooks/01_adversarial_evasion.ipynb):
+La carpeta [notebooks/](notebooks/) documenta la construcción completa del
+modelo v3 desde el dataset raw hasta el deliverable final. Pensados como
+material de estudio: un alumno los lee en orden y reproduce el pipeline.
 
-- **HopSkipJump** (black-box, L2) contra RF v3.
-- **84 % de tasa de evasión** con perturbación L2 ≈ 0.003.
-- Resultados en `logs/art_evasion_results.json`.
+| # | Notebook | Qué hace |
+|---|---|---|
+| 01 | [01_eda.ipynb](notebooks/01_eda.ipynb) | Exploración inicial CICIDS2017 (distribución de clases, schema, NaN/Inf, encoding) |
+| 02 | [02_cleaning_preprocessing.ipynb](notebooks/02_cleaning_preprocessing.ipynb) | Drop constantes, fix encoding, mapeo a 6 categorías, deduplicación, normalización de columnas |
+| 03 | _en construcción_ | Feature audit (drop por leakage + VIF para colinealidad, llegar a las 47 features finales) |
+| 04 | _en construcción_ | Baselines (LogReg, KNN, RF inicial) — comparación con métricas |
+| 05 | _en construcción_ | Hyperparameter tuning del Random Forest |
+| 06 | _en construcción_ | Modelo final + export de joblibs + manifest SHA-256 |
+| 07 | [01_adversarial_evasion.ipynb](notebooks/01_adversarial_evasion.ipynb) | Evaluación adversarial con HopSkipJump (84% tasa de evasión, L2 ≈ 0.003) |
+| 08 | _en construcción_ | Validación end-to-end contra el ML API en runtime |
+
+Para ejecutarlos necesitás los parquets raw de CICIDS2017 en
+`datasets/raw/` (los notebooks leen `RAW_DIR` del entorno; default
+`../datasets/raw/`). Ese directorio está en `.gitignore` por tamaño
+(~260 MB).
 
 ## Estructura del repositorio
 
