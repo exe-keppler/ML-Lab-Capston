@@ -110,6 +110,7 @@ services:
       - ./models:/home/app/models:rw
       - ./datasets:/home/app/datasets:ro
       - ./logs:/home/app/logs:rw
+      - ./notebooks:/home/app/notebooks:rw
     depends_on:
       ml_api:
         condition: service_healthy
