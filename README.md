@@ -64,12 +64,13 @@ sensor. Cobertura 47/47 features, balanceado a 2000 muestras × 6 clases
 
 ## Características clave
 
-### Modelo v1 auditado
+### Modelo v2 (activo) — auditado y reproducible
 
-- F1-macro multiclase **0.875** sobre test, 6 clases (Benign, DDoS, DoS, Brute Force, Reconnaissance, Web Attack).
-- **47 features** tras auditoría: drop de 31 columnas (8 constantes + 9 con leakage documentado + 14 redundantes por VIF).
-- Split **estratificado por (día, etiqueta)** 70/15/15 con deduplicación previa (−27.95 %).
-- Modelo verificado por **SHA-256** antes de carga (anti pickle RCE).
+- **F1-macro multiclase 0.675** y **F1-macro binary 0.990** sobre test (350K flujos no vistos), 6 clases (Benign, DDoS, DoS, Brute Force, Reconnaissance, Web Attack). Métricas reales del notebook 06 entrenando sobre 60K muestras balanceadas (10K/clase) de train+val.
+- **47 features** tras auditoría: 30 columnas dropeadas en total — 8 constantes (`02_cleaning_preprocessing`) + 6 leakage + 7 redundancia matemática + 9 VIF iterativo (`03_feature_audit`).
+- Split **estratificado por (día, etiqueta)** 70/15/15 con seed 42, persistido para reuso entre notebooks (`04_baselines.ipynb` produce `cicids_split.parquet`).
+- **Hyperparámetros tuneados** (notebook 05): RF `n_estimators=200, min_samples_leaf=5, class_weight=balanced_subsample`. XGBoost también disponible (`?model=xgb` en el endpoint).
+- Modelo verificado por **SHA-256** antes de carga (anti pickle RCE). El histórico v1 queda en `manifest_v1.json` para comparación.
 
 ### Correlación ML ↔ Suricata por 5-tupla
 
