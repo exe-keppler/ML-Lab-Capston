@@ -49,17 +49,6 @@ El parquet `datasets/cicids_v3_test.parquet` (1.3 MB) ya viene en el repo
 sensor. Cobertura 47/47 features, balanceado a 2000 muestras × 6 clases
 (Benign, DDoS, DoS, Brute Force, Reconnaissance, Web Attack).
 
-Si necesitás regenerarlo con muestras frescas o desde otra versión de
-CICIDS2017:
-
-```bash
-# Necesita ~/.kaggle/kaggle.json (https://www.kaggle.com/settings)
-FORCE=1 ./build/scripts/get_dataset.sh
-```
-
-El script descarga, mapea labels a 6 categorías, aplica aliases para
-variantes de nombres de columna, balancea y reescribe el parquet.
-
 ## Acceso por defecto
 
 > ⚠️ **Cambia las credenciales en producción.** Editá `.env` antes de correr `setup.sh`.
