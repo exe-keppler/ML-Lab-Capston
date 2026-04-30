@@ -11,7 +11,7 @@
   "version": 1,
   "refresh": "10s",
   "time": {
-    "from": "now-15m",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
@@ -28,12 +28,12 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "## Suricata SOC \u2014 IDS rule-based\n\nTr\u00e1fico monitoreado por **Suricata + ET-Open (~50k reglas)** sobre el bridge `ids_network`. Vista enterprise: alertas por tiempo, top firmas, severidad, protocolos, IPs. Datos via Loki (`{job=\"suricata\"}`, eve.json)."
+        "content": "## Suricata SOC \u2014 IDS rule-based (ET-Open ~50k reglas)\n\nVista enterprise para analista SOC. Datos: `eve.json` via Loki."
       }
     },
     {
       "id": 1,
-      "title": "Volumen de alertas (rolling)",
+      "title": "Tasa de alertas (ev/min)",
       "type": "timeseries",
       "datasource": {
         "type": "loki",
@@ -51,25 +51,27 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum(count_over_time({job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\" [1m]))",
+          "expr": "sum(rate({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" [1m]))",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "lineWidth": 2
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "drawStyle": "line"
           }
-        },
-        "overrides": []
+        }
       }
     },
     {
       "id": 2,
-      "title": "Severidad de alertas (1=cr\u00edtica, 3=info)",
+      "title": "Alertas por severidad (1=cr\u00edtica, 3=info)",
       "type": "timeseries",
       "datasource": {
         "type": "loki",
@@ -87,26 +89,31 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "sum by (sev) (count_over_time({job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\" | json | line_format \"{{.alert_severity}}\" | label_format sev=\"{{.alert_severity}}\" [5m]))",
+          "expr": "sum by (alert_severity) (rate({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" [1m]))",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "lineWidth": 2
+            "lineWidth": 2,
+            "fillOpacity": 30,
+            "drawStyle": "line",
+            "stacking": {
+              "mode": "none"
+            }
           }
-        },
-        "overrides": []
+        }
       }
     },
     {
       "id": 3,
-      "title": "Top firmas (signature) \u2014 \u00faltimos 15 min",
-      "type": "barchart",
+      "title": "Total de alertas (30 min)",
+      "type": "stat",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -114,8 +121,8 @@
       "gridPos": {
         "x": 0,
         "y": 11,
-        "w": 12,
-        "h": 9
+        "w": 6,
+        "h": 4
       },
       "targets": [
         {
@@ -123,29 +130,75 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(15, sum by (signature) (count_over_time({job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\" | json signature=\"alert.signature\" [15m])))",
+          "expr": "sum(count_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" [30m]))",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
           "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "lineWidth": 2
+            "mode": "fixed",
+            "fixedColor": "red"
           }
-        },
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal"
+        }
       }
     },
     {
       "id": 4,
-      "title": "Top src_ip de alertas",
-      "type": "barchart",
+      "title": "Severidad media",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 11,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "avg(avg_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json | unwrap alert_severity [30m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 2
+              },
+              {
+                "color": "yellow",
+                "value": 3
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "IPs origen \u00fanicas",
+      "type": "stat",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -154,7 +207,7 @@
         "x": 12,
         "y": 11,
         "w": 6,
-        "h": 9
+        "h": 4
       },
       "targets": [
         {
@@ -162,7 +215,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(10, sum by (src_ip) (count_over_time({job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\" | json src_ip=\"src_ip\" [15m])))",
+          "expr": "count(count by (src_ip) (count_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json src_ip=\"src_ip\" [30m])))",
           "refId": "A"
         }
       ],
@@ -176,15 +229,12 @@
           }
         },
         "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal"
       }
     },
     {
-      "id": 5,
-      "title": "Top dest_ip de alertas",
-      "type": "barchart",
+      "id": 6,
+      "title": "Firmas \u00fanicas disparadas",
+      "type": "stat",
       "datasource": {
         "type": "loki",
         "uid": "loki"
@@ -193,6 +243,42 @@
         "x": 18,
         "y": 11,
         "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "count(count by (sig) (count_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json sig=\"alert.signature\" [30m])))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "title": "Top 15 firmas (signatures)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
         "h": 9
       },
       "targets": [
@@ -201,7 +287,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "topk(10, sum by (dest_ip) (count_over_time({job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\" | json dest_ip=\"dest_ip\" [15m])))",
+          "expr": "topk(15, sum by (sig) (count_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json sig=\"alert.signature\" [30m])))",
           "refId": "A"
         }
       ],
@@ -217,52 +303,24 @@
         "overrides": []
       },
       "options": {
-        "orientation": "horizontal"
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
       }
     },
     {
-      "id": 6,
-      "title": "Distribuci\u00f3n de protocolos en alertas",
-      "type": "piechart",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 20,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "sum by (proto) (count_over_time({job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\" | json proto=\"proto\" [15m]))",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "legend": {
-          "showLegend": true
-        }
-      }
-    },
-    {
-      "id": 7,
-      "title": "Stream en vivo de alertas (\u00faltimas 30)",
-      "type": "logs",
+      "id": 8,
+      "title": "Top 10 src_ip",
+      "type": "bargauge",
       "datasource": {
         "type": "loki",
         "uid": "loki"
       },
       "gridPos": {
         "x": 12,
-        "y": 20,
-        "w": 12,
-        "h": 8
+        "y": 15,
+        "w": 6,
+        "h": 9
       },
       "targets": [
         {
@@ -270,13 +328,106 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"suricata\"} |~ \"\\\"event_type\\\":\\\"alert\\\"\"",
+          "expr": "topk(10, sum by (src_ip) (count_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json src_ip=\"src_ip\" [30m])))",
           "refId": "A"
         }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      }
+    },
+    {
+      "id": 9,
+      "title": "Top 10 dest_ip",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 15,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(10, sum by (dest_ip) (count_over_time({job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json dest_ip=\"dest_ip\" [30m])))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient"
+      }
+    },
+    {
+      "id": 10,
+      "title": "Stream de alertas (\u00faltimas 50)",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\"",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "lineWidth": 2
+          }
+        },
+        "overrides": []
+      },
       "options": {
         "showTime": true,
-        "wrapLogMessage": true
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
       }
     }
   ]

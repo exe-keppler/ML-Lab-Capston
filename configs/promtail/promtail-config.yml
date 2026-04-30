@@ -60,9 +60,11 @@ scrape_configs:
             confidence: confidence
             is_attack: is_attack
             n_packets: n_packets
+            model: model
       - labels:
           category:
           is_attack:
+          model:
       - timestamp:
           source: timestamp
           format: RFC3339Nano
