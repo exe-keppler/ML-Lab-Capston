@@ -17,10 +17,10 @@ id_ed25519*
 logs/
 *.log
 
-# Datasets (se montan en runtime, no se commitean)
-datasets/
+# Datasets — runtime, no se commitean (excepto el parquet de prueba)
+datasets/*
+!datasets/cicids_v3_test.parquet
 *.csv
-*.parquet
 *.pcap
 
 # Cachés de Python

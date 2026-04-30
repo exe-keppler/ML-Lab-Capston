@@ -42,20 +42,23 @@ El script:
 6. Levanta los 11 contenedores y espera healthchecks.
 7. Imprime las URLs de acceso.
 
-### Dataset CICIDS2017 (opcional pero recomendado)
+### Dataset CICIDS2017
 
-El parquet `datasets/cicids_v3_test.parquet` (1.3 MB) alimenta la tab
-"Dataset" del dashboard y la inyección de flujos del sensor. No está
-en el repo (gitignored). Para obtenerlo:
+El parquet `datasets/cicids_v3_test.parquet` (1.3 MB) ya viene en el repo
+— alimenta la tab "Dataset" del dashboard y la inyección de flujos del
+sensor. Cobertura 47/47 features, balanceado a 2000 muestras × 6 clases
+(Benign, DDoS, DoS, Brute Force, Reconnaissance, Web Attack).
+
+Si necesitás regenerarlo con muestras frescas o desde otra versión de
+CICIDS2017:
 
 ```bash
 # Necesita ~/.kaggle/kaggle.json (https://www.kaggle.com/settings)
-./build/scripts/get_dataset.sh
+FORCE=1 ./build/scripts/get_dataset.sh
 ```
 
-El script descarga el dataset desde Kaggle, mapea labels a 6 categorías,
-normaliza nombres de columnas (con aliases para variantes de CICIDS2017),
-balancea a 2000 muestras/clase y escribe el parquet listo para el lab.
+El script descarga, mapea labels a 6 categorías, aplica aliases para
+variantes de nombres de columna, balancea y reescribe el parquet.
 
 ## Acceso por defecto
 
