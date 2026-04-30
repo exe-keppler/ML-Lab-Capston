@@ -120,8 +120,8 @@ material de estudio: un alumno los lee en orden y reproduce el pipeline.
 | 04 | [04_baselines.ipynb](notebooks/04_baselines.ipynb) | Split estratificado 70/15/15 + baselines (LogReg/KNN/RF default). Comparación apples-to-apples en val balanced y val full. RF gana, F1-macro 0.64 (full) → 0.95 (balanced) — gap a cerrar con tuning |
 | 05 | [05_tuning_xgboost.ipynb](notebooks/05_tuning_xgboost.ipynb) | Tuning de RF (16 configs) + tuning de XGBoost (16 configs) para comparación apples-to-apples. Ganador: RF tuned (F1-macro 0.670) sobre XGBoost tuned (0.645). Boosting no siempre domina al bagging |
 | 06 | [06_final_model.ipynb](notebooks/06_final_model.ipynb) | Train final de RF tuned + XGBoost tuned sobre train+val combinados, eval en test (nunca visto). Exporta 7 joblibs v2 + manifest_v2.json (SHA-256). RF binary F1=0.99, RF multi F1=0.66 en test |
-| 07 | [01_adversarial_evasion.ipynb](notebooks/01_adversarial_evasion.ipynb) | Evaluación adversarial con HopSkipJump (84% tasa de evasión, L2 ≈ 0.003) |
-| 08 | _en construcción_ | Validación end-to-end contra el ML API en runtime |
+| 07 | [07_adversarial_evasion.ipynb](notebooks/07_adversarial_evasion.ipynb) | Adversarial HopSkipJump contra RF v2 y XGBoost v2. Ambos 100% evadibles; RF necesita más perturbación máxima (L2 hasta 1320 vs 100 de XGBoost) |
+| 08 | [08_inference_validation.ipynb](notebooks/08_inference_validation.ipynb) | Inference validation end-to-end: carga local v2 + verificación SHA-256 + comparación bit-exact con el ML API en runtime (30/30 matches) |
 
 Para ejecutarlos necesitás los parquets raw de CICIDS2017 en
 `datasets/raw/` (los notebooks leen `RAW_DIR` del entorno; default
