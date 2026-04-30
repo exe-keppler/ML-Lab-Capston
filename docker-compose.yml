@@ -74,8 +74,10 @@ services:
       - ML_API_URL=http://ml_api:8000
       - IDS_API_KEY=${IDS_API_KEY}
       - LOGS_DIR=/app/logs
+      - DATASETS_DIR=/app/datasets
     volumes:
       - ./logs:/app/logs:rw
+      - ./datasets:/app/datasets:ro
     depends_on:
       ml_api:
         condition: service_healthy
