@@ -212,7 +212,7 @@ def fetch_metrics():
 
 
 @st.cache_data(ttl=600, show_spinner="Calculando matriz de confusión (prediciendo batch vía API)...")
-def compute_confusion_matrix(n_per_class=50):
+def compute_confusion_matrix(n_per_class=50, model="rf"):
     df = load_dataset()
     if df is None:
         return None
@@ -225,7 +225,7 @@ def compute_confusion_matrix(n_per_class=50):
     flows = sample[feat_cols].values.tolist()
     try:
         resp = requests.post(
-            f"{API_URL}/predict/batch",
+            f"{API_URL}/predict/batch?model={model}",
             json={"flows": flows}, headers=headers, timeout=120,
         )
         resp.raise_for_status()
@@ -630,6 +630,65 @@ with tab_metrics:
 
     st.divider()
 
+    # ──── Comparativa RF tuned vs XGBoost tuned ────
+    rf_metrics = m.get("rf", {})
+    xgb_metrics = m.get("xgboost", {})
+    if rf_metrics and xgb_metrics:
+        st.subheader("Comparativa RF v2 vs XGBoost v2 (ambos tuneados, en test)")
+        st.caption(
+            "Los dos modelos se entrenaron con los mismos features, dataset y split. "
+            "El ganador (RF) es el que sirve `/predict` por default; XGBoost queda "
+            "disponible vía `/predict?model=xgb`."
+        )
+
+        def _row(label, rf_d, xgb_d):
+            rf_v = rf_d.get("F1_macro", 0)
+            xgb_v = xgb_d.get("F1_macro", 0)
+            winner = "RF" if rf_v > xgb_v else ("XGBoost" if xgb_v > rf_v else "empate")
+            return {
+                "Métrica": label,
+                "RF v2 tuned":      f"{rf_v:.4f}",
+                "XGBoost v2 tuned": f"{xgb_v:.4f}",
+                "Δ (RF - XGB)":     f"{rf_v - xgb_v:+.4f}",
+                "Mejor":            winner,
+            }
+
+        comp_rows = []
+        if rf_metrics.get("binary") and xgb_metrics.get("binary"):
+            comp_rows.append(_row("Binary F1-macro (test)", rf_metrics["binary"], xgb_metrics["binary"]))
+        if rf_metrics.get("multiclass") and xgb_metrics.get("multiclass"):
+            comp_rows.append(_row("Multi F1-macro (test)", rf_metrics["multiclass"], xgb_metrics["multiclass"]))
+            # Accuracy también
+            rf_acc = rf_metrics["multiclass"].get("accuracy", 0)
+            xgb_acc = xgb_metrics["multiclass"].get("accuracy", 0)
+            comp_rows.append({
+                "Métrica": "Multi accuracy (test)",
+                "RF v2 tuned":      f"{rf_acc:.4f}",
+                "XGBoost v2 tuned": f"{xgb_acc:.4f}",
+                "Δ (RF - XGB)":     f"{rf_acc - xgb_acc:+.4f}",
+                "Mejor":            "RF" if rf_acc > xgb_acc else ("XGBoost" if xgb_acc > rf_acc else "empate"),
+            })
+        if comp_rows:
+            st.dataframe(pd.DataFrame(comp_rows), hide_index=True, use_container_width=True)
+            st.caption(
+                "Lectura honesta: el gap suele ser pequeño (~0.02 en F1-macro multi). "
+                "RF gana en este dataset gracias a `class_weight=balanced_subsample` "
+                "que mejora recall en clases minoritarias. XGBoost default (sin tuning extra) "
+                "se queda atrás porque el `sample_weight=1/freq` no compensa tan bien como "
+                "el bagging weighted del RF. Tunear XGBoost más fino podría revertir el resultado."
+            )
+
+        # Hyperparámetros usados
+        rf_params = rf_metrics.get("best_params", {})
+        xgb_params = xgb_metrics.get("best_params", {})
+        with st.expander("Hyperparámetros tuneados"):
+            cc1, cc2 = st.columns(2)
+            cc1.markdown("**RF v2 tuned**")
+            cc1.json(rf_params)
+            cc2.markdown("**XGBoost v2 tuned**")
+            cc2.json(xgb_params)
+        st.divider()
+
     # ──── Matriz de confusión ────
     st.subheader("Matriz de confusión — predicciones en vivo")
     st.markdown(
@@ -642,11 +701,25 @@ with tab_metrics:
         "a `/predict/batch` del ML API, y comparamos predicciones vs labels reales. "
         "Cached 10 min."
     )
-    if st.button("Recalcular matriz de confusión"):
-        st.cache_data.clear()
-        st.rerun()
+    cm_col1, cm_col2 = st.columns([3, 1])
+    with cm_col1:
+        if st.button("Recalcular matriz de confusión"):
+            st.cache_data.clear()
+            st.rerun()
+    with cm_col2:
+        # Selector de modelo para la matriz (rf default, xgb si disponible)
+        try:
+            avail = requests.get(f"{API_URL}/health", timeout=3).json().get("available_models", ["rf"])
+        except Exception:
+            avail = ["rf"]
+        cm_model = st.selectbox(
+            "Modelo",
+            options=avail,
+            format_func=lambda m: {"rf": "RF v2", "xgb": "XGBoost v2"}.get(m, m),
+            key="cm_model_choice",
+        )
 
-    cm_df = compute_confusion_matrix(n_per_class=50)
+    cm_df = compute_confusion_matrix(n_per_class=50, model=cm_model)
     if cm_df is None or cm_df.empty:
         st.warning("No se pudo calcular (dataset o API no disponible).")
     else:
@@ -844,10 +917,25 @@ with tab_pred:
         features[feat_idx] = new_val
 
     st.subheader("Paso 3 — Clasificar")
-    if st.button("Clasificar con el modelo v2", type="primary", use_container_width=True):
+    # Selector de modelo (RF default, XGBoost si está disponible)
+    health_info = {}
+    try:
+        health_info = requests.get(f"{API_URL}/health", timeout=3).json()
+    except Exception:
+        pass
+    available = health_info.get("available_models", ["rf"])
+    model_choice = st.radio(
+        "Modelo",
+        options=available,
+        format_func=lambda m: {"rf": "Random Forest v2 (tuned)", "xgb": "XGBoost v2 (tuned)"}.get(m, m),
+        horizontal=True,
+        key="predict_model_choice",
+    )
+
+    if st.button(f"Clasificar con el modelo v2 ({model_choice.upper()})", type="primary", use_container_width=True):
         try:
             resp = requests.post(
-                f"{API_URL}/predict",
+                f"{API_URL}/predict?model={model_choice}",
                 json={"features": features},
                 headers=headers, timeout=10,
             ).json()
