@@ -7,7 +7,7 @@
 #
 # Requisitos:
 #   - .env con IDS_API_KEY, JUPYTER_TOKEN (ver .env.example)
-#   - /opt/ids-lab/models/ con artefactos v3 + manifest.json
+#   - /opt/ids-lab/models/ con artefactos v1 + manifest.json
 #   - /opt/ids-lab/datasets/ con muestra CICIDS2017 (opcional)
 # ═══════════════════════════════════════════════════════════════
 
@@ -35,7 +35,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # ── 2. ML API (FastAPI + Random Forest v3) ──────────────────
+  # ── 2. ML API (FastAPI + Random Forest v1) ──────────────────
   ml_api:
     build:
       context: ./build/ml_api

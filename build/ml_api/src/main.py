@@ -67,14 +67,14 @@ def load_artifact(name: str):
     return joblib.load(p)
 
 # ── Carga de artefactos ──────────────────────────────────────
-logger.info("Cargando artefactos v3...")
-rf_binary = load_artifact("rf_binary_v3.joblib")
-rf_multi = load_artifact("rf_multiclass_v3.joblib")
-scaler = load_artifact("scaler_v3.joblib")
-label_encoder = load_artifact("label_encoder_v3.joblib")
-feature_names = load_artifact("feature_names_v3.joblib")
+logger.info("Cargando artefactos v1...")
+rf_binary = load_artifact("rf_binary_v1.joblib")
+rf_multi = load_artifact("rf_multiclass_v1.joblib")
+scaler = load_artifact("scaler_v1.joblib")
+label_encoder = load_artifact("label_encoder_v1.joblib")
+feature_names = load_artifact("feature_names_v1.joblib")
 
-metrics_path = MODEL_DIR / "metrics_v3.json"
+metrics_path = MODEL_DIR / "metrics_v1.json"
 model_metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
 
 logger.info(f"  OK. Features: {len(feature_names)}, categorías: {list(label_encoder.classes_)}")
@@ -95,7 +95,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=[RATE_LIMIT])
 
 # ── App ──────────────────────────────────────────────────────
 app = FastAPI(title="IDS-ML API", version="3.0.0",
-              description="Detección de intrusiones con RF v3 — Arquitectura v2 UDLA")
+              description="Detección de intrusiones con RF v1 — Arquitectura v2 UDLA")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -127,7 +127,7 @@ class BatchInput(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "3.0.0", "model": "v3",
+    return {"status": "ok", "version": "3.0.0", "model": "v1",
             "n_features": len(feature_names),
             "categories": list(label_encoder.classes_),
             "integrity": "verified" if manifest else "unverified"}

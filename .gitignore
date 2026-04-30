@@ -19,7 +19,7 @@ logs/
 
 # Datasets — runtime, no se commitean (excepto el parquet de prueba)
 datasets/*
-!datasets/cicids_v3_test.parquet
+!datasets/cicids_test.parquet
 *.csv
 *.pcap
 

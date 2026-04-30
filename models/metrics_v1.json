@@ -1,5 +1,5 @@
 {
-  "version": "v3",
+  "version": "v1",
   "pipeline": "audited",
   "dataset": "CICIDS2017 clean",
   "n_features": 47,

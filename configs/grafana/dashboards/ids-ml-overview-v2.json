@@ -13,7 +13,7 @@
       "id": 100,
       "type": "text",
       "options": {
-        "content": "## 🛡️ IDS-ML Lab — Overview v2\n\n**Stack:** Suricata (rule-based, ET-Open ~50k reglas) + Random Forest v3 (47 features, F1-macro 0.875) | Dashboard alimentado por Loki (eve.json + sensor_predictions.jsonl + lab_history.jsonl) | Auto-refresh 10s",
+        "content": "## 🛡️ IDS-ML Lab — Overview v2\n\n**Stack:** Suricata (rule-based, ET-Open ~50k reglas) + Random Forest v1 (47 features, F1-macro 0.875) | Dashboard alimentado por Loki (eve.json + sensor_predictions.jsonl + lab_history.jsonl) | Auto-refresh 10s",
         "mode": "markdown"
       },
       "pluginVersion": "10.2.3",

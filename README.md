@@ -6,7 +6,7 @@ Sistema de Detección de Intrusiones basado en Machine Learning con correlación
 
 | Componente | Rol |
 |---|---|
-| **FastAPI + Random Forest v3** | ML API con 47 features CICIDS2017 auditado |
+| **FastAPI + Random Forest v1** | ML API con 47 features CICIDS2017 auditado |
 | **Streamlit** | Dashboard pedagógico de 6 tabs con correlación ML ↔ Suricata por 5-tupla |
 | **Suricata + ET-Open (~50k reglas)** | IDS rule-based (host mode, captura sobre bridge docker) |
 | **Sensor (CICFlowMeter)** | Captura tráfico, inyecta muestras CICIDS2017 y extrae features en vivo |
@@ -44,7 +44,7 @@ El script:
 
 ### Dataset CICIDS2017
 
-El parquet `datasets/cicids_v3_test.parquet` (1.3 MB) ya viene en el repo
+El parquet `datasets/cicids_test.parquet` (1.3 MB) ya viene en el repo
 — alimenta la tab "Dataset" del dashboard y la inyección de flujos del
 sensor. Cobertura 47/47 features, balanceado a 2000 muestras × 6 clases
 (Benign, DDoS, DoS, Brute Force, Reconnaissance, Web Attack).
@@ -64,7 +64,7 @@ sensor. Cobertura 47/47 features, balanceado a 2000 muestras × 6 clases
 
 ## Características clave
 
-### Modelo v3 auditado
+### Modelo v1 auditado
 
 - F1-macro multiclase **0.875** sobre test, 6 clases (Benign, DDoS, DoS, Brute Force, Reconnaissance, Web Attack).
 - **47 features** tras auditoría: drop de 31 columnas (8 constantes + 9 con leakage documentado + 14 redundantes por VIF).
@@ -109,17 +109,17 @@ El tab **"Suricata vs ML"** del dashboard muestra:
 ### Notebooks (paso a paso del modelo)
 
 La carpeta [notebooks/](notebooks/) documenta la construcción completa del
-modelo v3 desde el dataset raw hasta el deliverable final. Pensados como
+modelo v1 desde el dataset raw hasta el deliverable final. Pensados como
 material de estudio: un alumno los lee en orden y reproduce el pipeline.
 
 | # | Notebook | Qué hace |
 |---|---|---|
 | 01 | [01_eda.ipynb](notebooks/01_eda.ipynb) | Exploración inicial CICIDS2017 (distribución de clases, schema, NaN/Inf, encoding) |
 | 02 | [02_cleaning_preprocessing.ipynb](notebooks/02_cleaning_preprocessing.ipynb) | Drop constantes, fix encoding, mapeo a 6 categorías, deduplicación, normalización de columnas |
-| 03 | [03_feature_audit.ipynb](notebooks/03_feature_audit.ipynb) | Feature audit: aliases, drop por leakage (Init_Win_Bytes, SYN/CWE/ECE), redundancia (Avg_*, Subflow_*) y VIF iterativo. Llega a las 47 features (43/47 matchean v3 directo) |
+| 03 | [03_feature_audit.ipynb](notebooks/03_feature_audit.ipynb) | Feature audit: aliases, drop por leakage (Init_Win_Bytes, SYN/CWE/ECE), redundancia (Avg_*, Subflow_*) y VIF iterativo. Llega a las 47 features (43/47 matchean v1 directo) |
 | 04 | [04_baselines.ipynb](notebooks/04_baselines.ipynb) | Split estratificado 70/15/15 + baselines (LogReg/KNN/RF default). Comparación apples-to-apples en val balanced y val full. RF gana, F1-macro 0.64 (full) → 0.95 (balanced) — gap a cerrar con tuning |
 | 05 | [05_tuning_xgboost.ipynb](notebooks/05_tuning_xgboost.ipynb) | Tuning de RF (16 configs) + tuning de XGBoost (16 configs) para comparación apples-to-apples. Ganador: RF tuned (F1-macro 0.670) sobre XGBoost tuned (0.645). Boosting no siempre domina al bagging |
-| 06 | [06_final_model.ipynb](notebooks/06_final_model.ipynb) | Train final de RF tuned + XGBoost tuned sobre train+val combinados, eval en test (nunca visto). Exporta 7 joblibs v4 + manifest_v4.json (SHA-256). RF binary F1=0.99, RF multi F1=0.66 en test |
+| 06 | [06_final_model.ipynb](notebooks/06_final_model.ipynb) | Train final de RF tuned + XGBoost tuned sobre train+val combinados, eval en test (nunca visto). Exporta 7 joblibs v2 + manifest_v2.json (SHA-256). RF binary F1=0.99, RF multi F1=0.66 en test |
 | 07 | [01_adversarial_evasion.ipynb](notebooks/01_adversarial_evasion.ipynb) | Evaluación adversarial con HopSkipJump (84% tasa de evasión, L2 ≈ 0.003) |
 | 08 | _en construcción_ | Validación end-to-end contra el ML API en runtime |
 
@@ -140,7 +140,7 @@ Laboratorio-MLCyber/
 ├── .env.example                   ← plantilla credenciales
 ├── docker-compose.yml             ← stack de 11 contenedores
 ├── build/
-│   ├── ml_api/                    ← FastAPI + RF v3 + auth + SHA-256 verify
+│   ├── ml_api/                    ← FastAPI + RF v1 + auth + SHA-256 verify
 │   ├── dashboard/                 ← Streamlit 6 tabs + correlación 5-tupla
 │   ├── sensor/                    ← CICFlowMeter + request_id + JSONL
 │   └── jupyter/                   ← JupyterLab + ART + SHAP
@@ -151,7 +151,7 @@ Laboratorio-MLCyber/
 │   ├── promtail/                  ← shipping de eve.json + sensor JSONL
 │   └── grafana/                   ← provisioning + dashboards
 ├── notebooks/                     ← 01_adversarial_evasion.ipynb (HopSkipJump)
-└── models/                        ← 32 MB artefactos RF v3 + manifest SHA-256
+└── models/                        ← 32 MB artefactos RF v1 + manifest SHA-256
 ```
 
 ## Operación

@@ -1,0 +1,9 @@
+{
+  "feature_names_v2.joblib": "82d61fa2dc594f82832edc19d87a654c8155bbbd9e14cca912e8cc3eb4e15a68",
+  "label_encoder_v2.joblib": "c44912ef2211f85996827fe3f3c73b15b6302a98af7a764fefc0b1cb0bb75157",
+  "rf_binary_v2.joblib": "4e1b524c0df241f146bcd211593fc614964108df7de3991887d9cee3f5cb428a",
+  "rf_multiclass_v2.joblib": "7a1ecaf97d4aa17a8462b243c0512b5dd0c626a79021b095f68532689bf497f0",
+  "scaler_v2.joblib": "04e160dd17ddb41480f936239f2bf801ed38f196ae090a7b80217524030a37bb",
+  "xgb_binary_v2.joblib": "53397034fbbae173794438efa2866742f9963b8b18639828e93021951beba7ba",
+  "xgb_multiclass_v2.joblib": "b37f430b32762de0c2d14b0a9c5ba48369594d3a1f9be30626c2341c1e33c3df"
+}

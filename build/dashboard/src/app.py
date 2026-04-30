@@ -1,4 +1,4 @@
-"""Dashboard IDS-ML v3 — IA aplicada a Ciberseguridad (lab educativo).
+"""Dashboard IDS-ML v1 — IA aplicada a Ciberseguridad (lab educativo).
 
 Stakeholders: estudiantes de ciberseguridad aprendiendo ML.
 
@@ -35,7 +35,7 @@ HOST_IP = os.environ.get("HOST_IP", "localhost")
 SENSOR_PREDICTIONS_PATH = os.path.join(LOGS_DIR, "sensor_predictions.jsonl")
 LAB_HISTORY_PATH = os.path.join(LOGS_DIR, "lab_history.jsonl")
 EVE_JSON_PATH = os.path.join(LOGS_DIR, "eve.json")
-DATASET_PATH = os.path.join(DATASETS_DIR, "cicids_v3_test.parquet")
+DATASET_PATH = os.path.join(DATASETS_DIR, "cicids_test.parquet")
 HISTORY_MAX_ENTRIES = 500
 
 CATEGORY_COLORS = {
@@ -402,7 +402,7 @@ def run_http_attacks(categories):
 # ═══════════════════════════════════════════════════════════════
 st.set_page_config(page_title="IDS-ML Lab UDLA", layout="wide", page_icon="")
 st.title("IDS-ML Educational Lab")
-st.caption("IA aplicada a Ciberseguridad · Random Forest v3 + Suricata ET-Open · UDLA Capstone 2026")
+st.caption("IA aplicada a Ciberseguridad · Random Forest v1 + Suricata ET-Open · UDLA Capstone 2026")
 
 col1, col2, col3 = st.columns(3)
 try:
@@ -600,7 +600,7 @@ with tab_dataset:
 # TAB 3: Métricas del modelo
 # ═══════════════════════════════════════════════════════════════
 with tab_metrics:
-    st.header("Rendimiento del modelo v3")
+    st.header("Rendimiento del modelo v1")
 
     m = fetch_metrics()
     if not m:
@@ -728,7 +728,7 @@ with tab_metrics:
 
     # ──── Baselines ────
     st.subheader("Comparativa con modelos baseline")
-    bl = m.get("baselines_on_v3_split", {})
+    bl = m.get("baselines_on_v1_split", {})
     if bl:
         b_df = pd.DataFrame([
             {"Modelo": "Dummy (clase mayoritaria)",
@@ -740,7 +740,7 @@ with tab_metrics:
             {"Modelo": "Árbol depth=3",
              "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
              "Descripción": "Árbol pequeño; referencia interpretable."},
-            {"Modelo": "RF v3 (150 árboles)",
+            {"Modelo": "RF v1 (150 árboles)",
              "F1-w": round(bin_t.get("f1_weighted", 0), 4),
              "Descripción": "Modelo de producción del lab."},
         ])
@@ -844,7 +844,7 @@ with tab_pred:
         features[feat_idx] = new_val
 
     st.subheader("Paso 3 — Clasificar")
-    if st.button("Clasificar con el modelo v3", type="primary", use_container_width=True):
+    if st.button("Clasificar con el modelo v1", type="primary", use_container_width=True):
         try:
             resp = requests.post(
                 f"{API_URL}/predict",
@@ -970,7 +970,7 @@ with tab_attack:
     st.caption(
         "POST a `/capture/start` del sensor. El sensor genera tráfico con scapy, "
         "captura, extrae 47 features con CICFlowMeter, inyecta flujos reales del "
-        "CICIDS2017 y clasifica con el modelo v3. Escribe en "
+        "CICIDS2017 y clasifica con el modelo v1. Escribe en "
         "`sensor_predictions.jsonl` (visible en Grafana)."
     )
 
@@ -1329,7 +1329,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
 st.markdown("---")
 st.caption(
     "Maestría en IA Aplicada · UDLA 2026 · "
-    f"Dashboard v3 · [Grafana](http://{HOST_IP}:3000) · "
+    f"Dashboard v1 · [Grafana](http://{HOST_IP}:3000) · "
     f"[Jupyter](http://{HOST_IP}:8888) · "
     f"[DVWA](http://{HOST_IP}:8080)"
 )

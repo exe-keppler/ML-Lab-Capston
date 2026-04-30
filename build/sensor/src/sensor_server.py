@@ -1,5 +1,5 @@
 """
-Sensor IDS-ML v3 — Usa CICFlowMeter real para extraccion de features.
+Sensor IDS-ML v1 — Usa CICFlowMeter real para extraccion de features.
 
 Genera trafico contra DVWA, captura con Scapy + CICFlowMeter (mismas
 features que CICIDS2017), y envia a la API ML para clasificacion.
@@ -100,8 +100,8 @@ def load_model_features():
 
 # --- CICFlowMeter feature mapping ---
 # Mapeo de keys reales que retorna flow.get_data() (cicflowmeter v0.5+)
-# a los nombres exactos que el modelo v3 espera (con underscores).
-# Cobertura: 47/47 features del modelo v3 cubiertas (validado).
+# a los nombres exactos que el modelo v1 espera (con underscores).
+# Cobertura: 47/47 features del modelo v1 cubiertas (validado).
 CICFLOW_TO_MODEL = {
     'flow_duration': 'Flow_Duration',
     'tot_fwd_pkts': 'Total_Fwd_Packets',
@@ -402,8 +402,8 @@ def inject_dataset_flows(attack_type, n_per_cat=5):
         # Usamos un script Python que se ejecuta dentro del contenedor via la API
         # Alternativa: endpoint custom. Por ahora, generamos desde datos conocidos.
 
-        # Cargar dataset (test set v3 con etiquetas Label_6)
-        for candidate in ['/app/datasets/cicids_v3_test.parquet',
+        # Cargar dataset (test set v1 con etiquetas Label_6)
+        for candidate in ['/app/datasets/cicids_test.parquet',
                           '/app/data/cicids2017_processed.parquet']:
             if os.path.exists(candidate):
                 DATA_PATH = candidate
@@ -424,7 +424,7 @@ def inject_dataset_flows(attack_type, n_per_cat=5):
         if is_prescaled:
             try:
                 import joblib
-                for sp in ['/app/models/scaler_v3.joblib', '/app/models/scaler.joblib']:
+                for sp in ['/app/models/scaler_v1.joblib', '/app/models/scaler.joblib']:
                     if os.path.exists(sp):
                         scaler = joblib.load(sp)
                         print(f"[Inject] Datos pre-escalados detectados; aplicare inverse_transform con {sp}")
