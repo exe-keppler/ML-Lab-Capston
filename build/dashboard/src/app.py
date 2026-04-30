@@ -317,7 +317,7 @@ def launch_sensor_capture(attack_type, duration=15, intensity=30, inject_dataset
         except Exception:
             pass
         time.sleep(2)
-    progress.progress(1.0, text=f"✓ {last_status} · pkts={pkts} flows={flows}")
+    progress.progress(1.0, text=f"{last_status} · pkts={pkts} flows={flows}")
     return {"request_id": req_id, "status": last_status,
             "packets_captured": pkts, "flows_extracted": flows}
 
@@ -400,8 +400,8 @@ def run_http_attacks(categories):
 # ═══════════════════════════════════════════════════════════════
 # Page setup + Health
 # ═══════════════════════════════════════════════════════════════
-st.set_page_config(page_title="IDS-ML Lab UDLA", layout="wide", page_icon="🛡️")
-st.title("🛡️ IDS-ML Educational Lab")
+st.set_page_config(page_title="IDS-ML Lab UDLA", layout="wide", page_icon="")
+st.title("IDS-ML Educational Lab")
 st.caption("IA aplicada a Ciberseguridad · Random Forest v3 + Suricata ET-Open · UDLA Capstone 2026")
 
 col1, col2, col3 = st.columns(3)
@@ -419,19 +419,19 @@ except Exception as e:
 # Tabs
 # ═══════════════════════════════════════════════════════════════
 tab_intro, tab_dataset, tab_metrics, tab_pred, tab_attack, tab_compare = st.tabs([
-    "📚 Intro",
-    "📁 Dataset",
-    "📊 Métricas",
-    "🔮 Predicción",
-    "⚔️ Ataques",
-    "⚖️ Suricata vs ML",
+    "Intro",
+    "Dataset",
+    "Métricas",
+    "Predicción",
+    "Ataques",
+    "Suricata vs ML",
 ])
 
 # ═══════════════════════════════════════════════════════════════
 # TAB 1: Intro / Lab Guide
 # ═══════════════════════════════════════════════════════════════
 with tab_intro:
-    st.header("📚 Bienvenido al Lab IDS + ML")
+    st.header("Bienvenido al Lab IDS + ML")
     st.markdown("""
 Este laboratorio combina **Machine Learning** y **detección por firmas** para construir
 un **IDS híbrido**. Objetivos pedagógicos:
@@ -443,10 +443,10 @@ un **IDS híbrido**. Objetivos pedagógicos:
 """)
     st.divider()
 
-    st.subheader("🏗️ Arquitectura del lab")
+    st.subheader("Arquitectura del lab")
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.markdown("**🔎 Captura / detección**")
+        st.markdown("**Captura / detección**")
         st.markdown("""
 - **Suricata 7.0.15** — IDS open-source
 - 49.8k reglas **ET Open** (Emerging Threats)
@@ -454,7 +454,7 @@ un **IDS híbrido**. Objetivos pedagógicos:
 - **Sensor FastAPI** — orquesta capturas + inyección
 """)
     with c2:
-        st.markdown("**🧠 Análisis / ML**")
+        st.markdown("**Análisis / ML**")
         st.markdown("""
 - **ML API** — FastAPI + Random Forest
 - Dos modelos: **binario** (ataque/no) + **multiclase** (6 categorías)
@@ -462,7 +462,7 @@ un **IDS híbrido**. Objetivos pedagógicos:
 - Mapping automático a **MITRE ATT&CK**
 """)
     with c3:
-        st.markdown("**📊 Observabilidad**")
+        st.markdown("**Observabilidad**")
         st.markdown("""
 - **Grafana 10.2** — dashboards en vivo
 - **Loki** — agregador de logs
@@ -471,27 +471,27 @@ un **IDS híbrido**. Objetivos pedagógicos:
 """)
 
     st.divider()
-    st.subheader("🧭 Recorrido recomendado")
+    st.subheader("Recorrido recomendado")
     st.markdown("""
 | Paso | Tab | Qué aprendes |
 |---|---|---|
-| 1 | 📁 Dataset | Con qué datos se entrenó el modelo; distribución y correlaciones |
-| 2 | 📊 Métricas | Qué tan bueno es el modelo; confusion matrix y feature importance |
-| 3 | 🔮 Predicción | Clasificar flujos interactivamente; ver cómo cambian las decisiones |
-| 4 | ⚔️ Ataques | Lanzar ataques reales contra el host vulnerable (DVWA) |
-| 5 | ⚖️ Suricata vs ML | Comparar los dos enfoques: dónde coinciden, dónde discrepan |
+| 1 | Dataset | Con qué datos se entrenó el modelo; distribución y correlaciones |
+| 2 | Métricas | Qué tan bueno es el modelo; confusion matrix y feature importance |
+| 3 | Predicción | Clasificar flujos interactivamente; ver cómo cambian las decisiones |
+| 4 | Ataques | Lanzar ataques reales contra el host vulnerable (DVWA) |
+| 5 | Suricata vs ML | Comparar los dos enfoques: dónde coinciden, dónde discrepan |
 """)
 
     st.divider()
-    st.subheader("🔗 Servicios activos del lab")
+    st.subheader("Servicios activos del lab")
     c1, c2, c3, c4 = st.columns(4)
-    c1.link_button("📈 Grafana", f"http://{HOST_IP}:3000", use_container_width=True)
-    c2.link_button("📓 Jupyter", f"http://{HOST_IP}:8888", use_container_width=True)
-    c3.link_button("🎯 DVWA (target)", f"http://{HOST_IP}:8080", use_container_width=True)
-    c4.link_button("🔐 Sensor API docs", f"http://{HOST_IP}:9999/docs", use_container_width=True)
+    c1.link_button("Grafana", f"http://{HOST_IP}:3000", use_container_width=True)
+    c2.link_button("Jupyter", f"http://{HOST_IP}:8888", use_container_width=True)
+    c3.link_button("DVWA (target)", f"http://{HOST_IP}:8080", use_container_width=True)
+    c4.link_button("Sensor API docs", f"http://{HOST_IP}:9999/docs", use_container_width=True)
 
     st.divider()
-    with st.expander("📖 Glosario rápido"):
+    with st.expander("Glosario rápido"):
         st.markdown("""
 - **IDS (Intrusion Detection System)**: sistema que detecta intentos de ataque en una red.
 - **Suricata**: IDS open-source multithread, base del lab. Usa reglas tipo `alert tcp any -> $HOME_NET 80 (content:"UNION SELECT"; sid:XXX;)`.
@@ -509,7 +509,7 @@ un **IDS híbrido**. Objetivos pedagógicos:
 # TAB 2: Dataset Explorer
 # ═══════════════════════════════════════════════════════════════
 with tab_dataset:
-    st.header("📁 Dataset CICIDS2017 — los datos del entrenamiento")
+    st.header("Dataset CICIDS2017 — los datos del entrenamiento")
     df = load_dataset()
     if df is None:
         st.error(f"Dataset no encontrado en `{DATASET_PATH}`. "
@@ -529,7 +529,7 @@ with tab_dataset:
     c4.metric("% ataques", f"{(df['Label_6'] != 'Benign').mean():.0%}")
 
     st.divider()
-    st.subheader("🧩 Distribución de clases")
+    st.subheader("Distribución de clases")
     cat_counts = df['Label_6'].value_counts().reindex(CATEGORY_ORDER).dropna()
     fig = px.pie(
         values=cat_counts.values, names=cat_counts.index,
@@ -539,14 +539,14 @@ with tab_dataset:
     st.plotly_chart(fig, use_container_width=True)
 
     st.info(
-        "💡 **Observación clave**: el dataset está **balanceado** (~2000/clase). "
+        "**Observación clave**: el dataset está **balanceado** (~2000/clase). "
         "En datos reales el tráfico benigno domina ~99%. Si no balanceas, un modelo "
         "perezoso que diga **'Benign' siempre** parece tener 99% de accuracy. "
         "Por eso usamos F1 (no accuracy) y balanceamos al entrenar."
     )
 
     st.divider()
-    st.subheader("📊 Distribución de una feature por clase")
+    st.subheader("Distribución de una feature por clase")
     feat_cols = [c for c in df.columns if c != 'Label_6']
     c1, c2 = st.columns([3, 1])
     with c1:
@@ -568,12 +568,12 @@ with tab_dataset:
     st.plotly_chart(fig, use_container_width=True)
 
     st.caption(
-        "💡 Si las barras de distintos colores **no se solapan**, esa feature es muy útil "
+        "Si las barras de distintos colores **no se solapan**, esa feature es muy útil "
         "para distinguir esa clase. Si se solapan mucho, no ayuda."
     )
 
     st.divider()
-    st.subheader("🔗 Correlación entre features más importantes")
+    st.subheader("Correlación entre features más importantes")
     st.caption(
         "Pares con correlación cerca de ±1 son **redundantes** (el modelo podría ignorar una). "
         "Valores cerca de 0 significan features independientes."
@@ -590,7 +590,7 @@ with tab_dataset:
         fig.update_layout(height=450)
         st.plotly_chart(fig, use_container_width=True)
 
-    with st.expander("🔎 Ver muestra aleatoria de filas"):
+    with st.expander("Ver muestra aleatoria de filas"):
         n = st.slider("N filas", 10, 200, 50, 10)
         st.dataframe(df.sample(n, random_state=42).reset_index(drop=True),
                      use_container_width=True)
@@ -600,7 +600,7 @@ with tab_dataset:
 # TAB 3: Métricas del modelo
 # ═══════════════════════════════════════════════════════════════
 with tab_metrics:
-    st.header("📊 Rendimiento del modelo v3")
+    st.header("Rendimiento del modelo v3")
 
     m = fetch_metrics()
     if not m:
@@ -631,7 +631,7 @@ with tab_metrics:
     st.divider()
 
     # ──── Matriz de confusión ────
-    st.subheader("🎯 Matriz de confusión — predicciones en vivo")
+    st.subheader("Matriz de confusión — predicciones en vivo")
     st.markdown(
         "La matriz muestra dónde el modelo **se equivoca entre categorías**. "
         "Filas = clase real del dataset, columnas = predicción del modelo. "
@@ -642,7 +642,7 @@ with tab_metrics:
         "a `/predict/batch` del ML API, y comparamos predicciones vs labels reales. "
         "Cached 10 min."
     )
-    if st.button("🔄 Recalcular matriz de confusión"):
+    if st.button("Recalcular matriz de confusión"):
         st.cache_data.clear()
         st.rerun()
 
@@ -685,7 +685,7 @@ with tab_metrics:
         accuracy = (cm_df['y_true'] == cm_df['y_pred']).mean()
         correct = int((cm_df['y_true'] == cm_df['y_pred']).sum())
         st.success(
-            f"📌 **Accuracy en este sample**: {accuracy:.1%} "
+            f"**Accuracy en este sample**: {accuracy:.1%} "
             f"({correct} de {len(cm_df)} predicciones correctas)"
         )
 
@@ -697,7 +697,7 @@ with tab_metrics:
         if worst_recall < 0.8:
             confused_with = cm_norm.loc[worst_class].drop(worst_class).idxmax() if len(cm_norm.columns) > 1 else "?"
             st.warning(
-                f"⚠️ **Clase más débil**: `{worst_class}` con recall {worst_recall:.0%}. "
+                f"**Clase más débil**: `{worst_class}` con recall {worst_recall:.0%}. "
                 f"Se confunde principalmente con `{confused_with}`. "
                 f"(9 features backward están imputadas con 0 en nuestro parquet.)"
             )
@@ -705,7 +705,7 @@ with tab_metrics:
     st.divider()
 
     # ──── Classification report ────
-    st.subheader("📋 Reporte por clase (multiclase, test del entrenamiento)")
+    st.subheader("Reporte por clase (multiclase, test del entrenamiento)")
     cr = m.get("multiclass", {}).get("classification_report", {})
     rows = []
     for cls, stats in cr.items():
@@ -720,33 +720,33 @@ with tab_metrics:
     if rows:
         st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
         st.caption(
-            "💡 **Precision** = de todo lo que predije como X, cuánto era X realmente (bajo ⇒ falsos positivos). "
+            "**Precision** = de todo lo que predije como X, cuánto era X realmente (bajo ⇒ falsos positivos). "
             "**Recall** = de todo lo que era X realmente, cuánto detecté (bajo ⇒ falsos negativos)."
         )
 
     st.divider()
 
     # ──── Baselines ────
-    st.subheader("🏆 Comparativa con modelos baseline")
+    st.subheader("Comparativa con modelos baseline")
     bl = m.get("baselines_on_v3_split", {})
     if bl:
         b_df = pd.DataFrame([
-            {"Modelo": "🟤 Dummy (clase mayoritaria)",
+            {"Modelo": "Dummy (clase mayoritaria)",
              "F1-w": round(bl.get("dummy_majority_f1_weighted", 0), 4),
              "Descripción": "Siempre predice 'Benign'. Techo inferior trivial."},
-            {"Modelo": f"🟠 Stump (1 split en '{bl.get('stump_feature','?')}')",
+            {"Modelo": f"Stump (1 split en '{bl.get('stump_feature','?')}')",
              "F1-w": round(bl.get("stump_depth1_f1_weighted", 0), 4),
              "Descripción": "Árbol de 1 nivel — la mínima señal extraíble."},
-            {"Modelo": "🟡 Árbol depth=3",
+            {"Modelo": "Árbol depth=3",
              "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
              "Descripción": "Árbol pequeño; referencia interpretable."},
-            {"Modelo": "🟢 RF v3 (150 árboles)",
+            {"Modelo": "RF v3 (150 árboles)",
              "F1-w": round(bin_t.get("f1_weighted", 0), 4),
              "Descripción": "Modelo de producción del lab."},
         ])
         st.dataframe(b_df, hide_index=True, use_container_width=True)
         st.caption(
-            "💡 El salto entre **Stump** y **RF** mide cuánta señal **no-lineal** hay "
+            "El salto entre **Stump** y **RF** mide cuánta señal **no-lineal** hay "
             "en los datos. Si el stump ya es 0.90, tu problema es fácil; si el stump "
             "es 0.60 y RF llega a 0.99, hay mucha interacción entre features."
         )
@@ -754,7 +754,7 @@ with tab_metrics:
     st.divider()
 
     # ──── Feature importance ────
-    st.subheader("🔍 Feature importance (Gini)")
+    st.subheader("Feature importance (Gini)")
     fi = m.get("feature_importance_gini_top20", [])
     if fi:
         fi_df = pd.DataFrame(fi[:15])
@@ -765,9 +765,9 @@ with tab_metrics:
         fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=500)
         st.plotly_chart(fig, use_container_width=True)
         st.caption(
-            "💡 Las top features son las que más contribuyen a **reducir la impureza Gini** "
+            "Las top features son las que más contribuyen a **reducir la impureza Gini** "
             "del ensemble. Son los 'tornillos' del modelo — cambiarlas mueve la predicción. "
-            "⚠️ No confundir con **importancia causal** (Gini mide uso, no causalidad)."
+            "No confundir con **importancia causal** (Gini mide uso, no causalidad)."
         )
 
 
@@ -775,7 +775,7 @@ with tab_metrics:
 # TAB 4: Predicción interactiva
 # ═══════════════════════════════════════════════════════════════
 with tab_pred:
-    st.header("🔮 Clasificación interactiva de flujos")
+    st.header("Clasificación interactiva de flujos")
     st.markdown(
         "Carga un **ejemplo real del dataset** con un click, modifica las features "
         "más influyentes con sliders, y observa cómo el modelo cambia su predicción."
@@ -803,7 +803,7 @@ with tab_pred:
             st.session_state.preset_features = [0.0] * len(feat_cols)
             st.session_state.preset_label = "?"
 
-    st.subheader("📋 Paso 1 — Carga un preset del dataset")
+    st.subheader("Paso 1 — Carga un preset del dataset")
     cols = st.columns(6)
     for i, cat in enumerate(CATEGORY_ORDER):
         if cols[i].button(cat, use_container_width=True, key=f"preset_btn_{cat}"):
@@ -819,7 +819,7 @@ with tab_pred:
 
     st.caption(f"Preset actual: **{st.session_state.preset_label}** (muestra aleatoria del dataset).")
 
-    st.subheader("🎚️ Paso 2 — Ajusta features clave (opcional)")
+    st.subheader("Paso 2 — Ajusta features clave (opcional)")
     st.caption(
         f"Las **{len(top_features)} features más importantes** del modelo. "
         f"El resto de las {len(feat_cols) - len(top_features)} quedan en el valor del preset."
@@ -843,8 +843,8 @@ with tab_pred:
         )
         features[feat_idx] = new_val
 
-    st.subheader("🎯 Paso 3 — Clasificar")
-    if st.button("🚀 Clasificar con el modelo v3", type="primary", use_container_width=True):
+    st.subheader("Paso 3 — Clasificar")
+    if st.button("Clasificar con el modelo v3", type="primary", use_container_width=True):
         try:
             resp = requests.post(
                 f"{API_URL}/predict",
@@ -859,12 +859,12 @@ with tab_pred:
 
             if is_attack:
                 st.error(
-                    f"🚨 **ATAQUE detectado** — categoría: **{category}** "
+                    f"**ATAQUE detectado** — categoría: **{category}** "
                     f"(confianza categoría: {cat_conf:.1%}, prob. ataque: {atk_conf:.1%})"
                 )
             else:
                 st.success(
-                    f"✅ **Tráfico BENIGNO** (prob. ataque: {atk_conf:.1%}, "
+                    f"**Tráfico BENIGNO** (prob. ataque: {atk_conf:.1%}, "
                     f"categoría más probable: {category} @ {cat_conf:.1%})"
                 )
 
@@ -872,12 +872,12 @@ with tab_pred:
             if st.session_state.preset_label != "?":
                 if category == st.session_state.preset_label:
                     st.info(
-                        f"🎯 **Coincide con el label real del preset** "
+                        f"**Coincide con el label real del preset** "
                         f"({st.session_state.preset_label}). El modelo acertó."
                     )
                 else:
                     st.warning(
-                        f"⚠️ El preset tenía label **{st.session_state.preset_label}** "
+                        f"El preset tenía label **{st.session_state.preset_label}** "
                         f"pero el modelo predijo **{category}**. "
                         f"Probablemente modificaste features al punto de confundirlo "
                         f"— muy útil para entender los límites del modelo."
@@ -888,7 +888,7 @@ with tab_pred:
             tactics = mitre.get("tactics", [])
             techniques = mitre.get("techniques", [])
             if tactics or techniques:
-                st.markdown("### 🎯 MITRE ATT&CK Mapping")
+                st.markdown("### MITRE ATT&CK Mapping")
                 cols_m = st.columns(2)
                 with cols_m[0]:
                     st.markdown("**Tácticas**")
@@ -906,7 +906,7 @@ with tab_pred:
                         st.caption("—")
 
             # Explicación heurística
-            st.markdown("### 🔍 Explicación heurística")
+            st.markdown("### Explicación heurística")
             st.caption(
                 "Aproximación **educativa** de qué features pesaron. "
                 "Score = `|valor normalizado| × importancia_Gini`. "
@@ -940,7 +940,7 @@ with tab_pred:
                 st.plotly_chart(fig, use_container_width=True)
                 st.dataframe(expl_df, hide_index=True, use_container_width=True)
 
-            with st.expander("🧾 Respuesta completa del ML API (JSON)"):
+            with st.expander("Respuesta completa del ML API (JSON)"):
                 st.json(resp)
         except Exception as e:
             st.error(f"Error al clasificar: {e}")
@@ -950,9 +950,9 @@ with tab_pred:
 # TAB 5: Ataques simulados
 # ═══════════════════════════════════════════════════════════════
 with tab_attack:
-    st.header("⚔️ Ataques simulados contra DVWA (172.25.0.50)")
+    st.header("Ataques simulados contra DVWA (172.25.0.50)")
     st.warning(
-        "🔒 **Uso exclusivamente educativo.** Todos los ataques se ejecutan "
+        "**Uso exclusivamente educativo.** Todos los ataques se ejecutan "
         "dentro de la red docker aislada `laboratorio-mlcyber_ids_network`. "
         "NO uses estos payloads contra sistemas que no controles."
     )
@@ -966,7 +966,7 @@ with tab_attack:
     st.divider()
 
     # ── Sección A ──
-    st.markdown("### 🤖 A. Ataques vía Sensor ML")
+    st.markdown("### A. Ataques vía Sensor ML")
     st.caption(
         "POST a `/capture/start` del sensor. El sensor genera tráfico con scapy, "
         "captura, extrae 47 features con CICFlowMeter, inyecta flujos reales del "
@@ -984,15 +984,15 @@ with tab_attack:
 
     bA1, bA2, bA3, bA4, bA5 = st.columns(5)
     attack_to_run = None
-    if bA1.button("🌊 Flood (DoS)", use_container_width=True):
+    if bA1.button("Flood (DoS)", use_container_width=True):
         attack_to_run = "flood"
-    if bA2.button("🔍 Scan (Recon)", use_container_width=True):
+    if bA2.button("Scan (Recon)", use_container_width=True):
         attack_to_run = "scan"
-    if bA3.button("🔐 Bruteforce", use_container_width=True):
+    if bA3.button("Bruteforce", use_container_width=True):
         attack_to_run = "bruteforce"
-    if bA4.button("🎭 Mixed", type="primary", use_container_width=True):
+    if bA4.button("Mixed", type="primary", use_container_width=True):
         attack_to_run = "mixed"
-    if bA5.button("😇 Normal (baseline)", use_container_width=True):
+    if bA5.button("Normal (baseline)", use_container_width=True):
         attack_to_run = "normal"
 
     if attack_to_run:
@@ -1003,14 +1003,14 @@ with tab_attack:
                 intensity=intensity, inject_dataset=inject,
             )
             if "error" in result:
-                status.update(label=f"❌ {result['error']}", state="error")
+                status.update(label=f"{result['error']}", state="error")
                 st.error(result["error"])
             else:
                 time.sleep(1)
                 new_alerts = count_alerts_now() - base_alerts
                 new_preds = count_predictions_now() - base_preds
                 status.update(
-                    label=f"✓ '{attack_to_run}' → +{new_alerts} alertas · "
+                    label=f"'{attack_to_run}' → +{new_alerts} alertas · "
                           f"+{new_preds} predicciones",
                     state="complete", expanded=False,
                 )
@@ -1044,7 +1044,7 @@ with tab_attack:
     st.divider()
 
     # ── Sección B ──
-    st.markdown("### 🌐 B. Ataques HTTP directos contra DVWA")
+    st.markdown("### B. Ataques HTTP directos contra DVWA")
     st.caption(
         "Payloads HTTP crudos que viajan por el bridge docker y disparan "
         "**firmas Suricata ET Open** (SQLi, XSS, Shellshock, User-Agents de "
@@ -1057,18 +1057,18 @@ with tab_attack:
         options=["sqli", "xss", "traversal", "shellshock", "badagent", "recon", "bruteforce"],
         default=["sqli", "xss", "badagent", "recon"],
         format_func=lambda x: {
-            "sqli": "💉 SQL Injection",
-            "xss": "🪤 XSS (Reflected + Stored)",
-            "traversal": "📂 Directory Traversal / LFI",
-            "shellshock": "🐚 Shellshock (CVE-2014-6271)",
-            "badagent": "🕵️ User-Agents maliciosos (Nikto, sqlmap, zgrab...)",
-            "recon": "🗺️ Recon paths (wp-admin, .env, .git, phpmyadmin...)",
-            "bruteforce": "🔓 Bruteforce login (27 intentos)",
+            "sqli": "SQL Injection",
+            "xss": "XSS (Reflected + Stored)",
+            "traversal": "Directory Traversal / LFI",
+            "shellshock": "Shellshock (CVE-2014-6271)",
+            "badagent": "User-Agents maliciosos (Nikto, sqlmap, zgrab...)",
+            "recon": "Recon paths (wp-admin, .env, .git, phpmyadmin...)",
+            "bruteforce": "Bruteforce login (27 intentos)",
         }.get(x, x),
         key="atk_cats",
     )
 
-    if st.button("🚀 Disparar payloads HTTP", type="primary", use_container_width=True):
+    if st.button("Disparar payloads HTTP", type="primary", use_container_width=True):
         if not cats_enabled:
             st.warning("Selecciona al menos una categoría.")
         else:
@@ -1079,7 +1079,7 @@ with tab_attack:
                 time.sleep(2)
                 new_alerts = count_alerts_now() - base_alerts
                 status.update(
-                    label=f"✓ {len(http_results)} requests en {elapsed:.1f}s · "
+                    label=f"{len(http_results)} requests en {elapsed:.1f}s · "
                           f"+{new_alerts} alertas",
                     state="complete", expanded=False,
                 )
@@ -1090,32 +1090,32 @@ with tab_attack:
             c3.metric("Alertas Suricata nuevas", new_alerts,
                       delta=new_alerts if new_alerts > 0 else None)
 
-            st.markdown("**📜 Detalle de requests:**")
+            st.markdown("**Detalle de requests:**")
             st.dataframe(pd.DataFrame(http_results), hide_index=True,
                          use_container_width=True, height=250)
 
             recent = latest_alert_signatures(n=15)
             if recent:
-                st.markdown("**🚨 Últimas 15 alertas Suricata:**")
+                st.markdown("**Últimas 15 alertas Suricata:**")
                 st.dataframe(pd.DataFrame(recent), hide_index=True,
                              use_container_width=True, height=300)
 
     st.divider()
 
     # ── Sección C ──
-    st.markdown("### 💥 C. Combo end-to-end")
+    st.markdown("### C. Combo end-to-end")
     st.caption(
         "Ejecuta la batería completa: 1) `mixed` con inyección CICIDS2017 "
         "(→ ML detecta ataques), 2) payloads HTTP de todas las categorías "
         "(→ Suricata dispara firmas). Demostración completa del pipeline."
     )
 
-    if st.button("🎬 Lanzar combo completo", use_container_width=True):
+    if st.button("Lanzar combo completo", use_container_width=True):
         with st.status("Combo en ejecución (~30-45 s)...", expanded=True) as status:
             st.write("Paso 1/2: Sensor 'mixed' 15s @ 30 pkts/s + inject CICIDS...")
             r1 = launch_sensor_capture("mixed", duration=15, intensity=30, inject_dataset=True)
             if "error" in r1:
-                status.update(label=f"❌ Sensor falló: {r1['error']}", state="error")
+                status.update(label=f"Sensor falló: {r1['error']}", state="error")
             else:
                 st.write(f"  → pkts={r1.get('packets_captured', 0)} flows={r1.get('flows_extracted', 0)}")
 
@@ -1129,16 +1129,16 @@ with tab_attack:
             final_alerts = count_alerts_now() - base_alerts
             final_preds = count_predictions_now() - base_preds
             status.update(
-                label=f"✓ Combo listo · +{final_alerts} alertas Suricata · "
+                label=f"Combo listo · +{final_alerts} alertas Suricata · "
                       f"+{final_preds} predicciones ML",
                 state="complete", expanded=False,
             )
 
         c1, c2 = st.columns(2)
-        c1.metric("🚨 Alertas Suricata (Δ)", final_alerts)
-        c2.metric("🤖 Predicciones ML (Δ)", final_preds)
+        c1.metric("Alertas Suricata (Δ)", final_alerts)
+        c2.metric("Predicciones ML (Δ)", final_preds)
         st.info(
-            f"📊 **Siguiente paso**: abre [Grafana](http://{HOST_IP}:3000) → "
+            f"**Siguiente paso**: abre [Grafana](http://{HOST_IP}:3000) → "
             "**IDS-ML Overview v2** con time range `Last 15 minutes`. "
             "Deberías ver picos en ambos paneles (Suricata y ML)."
         )
@@ -1148,7 +1148,7 @@ with tab_attack:
 # TAB 6: Suricata vs ML
 # ═══════════════════════════════════════════════════════════════
 with tab_compare:
-    st.header("⚖️ Suricata (firmas) vs ML (aprendizaje)")
+    st.header("Suricata (firmas) vs ML (aprendizaje)")
     st.markdown("""
 Las dos formas dominantes de detección de intrusiones tienen **errores diferentes**:
 
@@ -1160,14 +1160,14 @@ Las dos formas dominantes de detección de intrusiones tienen **errores diferent
 Un SOC moderno los combina para cubrir los **blind spots** de cada uno.
 """)
 
-    with st.expander("📖 ¿Qué significan los veredictos de correlación?", expanded=False):
+    with st.expander("¿Qué significan los veredictos de correlación?", expanded=False):
         st.markdown("""
 Cuando cruzamos predicciones ML ↔ alertas Suricata por **5-tupla** (src_ip, dst_ip, src_port, dst_port, proto):
 
-- 🔴 **`both_detected`** — Ambos marcaron ataque. **Alta confianza** de ataque real.
-- 🟡 **`ml_only`** — Solo el ML lo marcó. Candidato a **zero-day** o variante nueva sin firma. Investigar: ¿falso positivo del ML o ataque desconocido?
-- 🟠 **`suricata_only`** — Solo Suricata disparó. Puede ser **falso negativo del ML** (no aprendió esa variante) o **falso positivo de la firma**.
-- 🟢 **`both_clean`** — Ambos dicen "benigno". Probablemente tráfico legítimo.
+- **`both_detected`** — Ambos marcaron ataque. **Alta confianza** de ataque real.
+- **`ml_only`** — Solo el ML lo marcó. Candidato a **zero-day** o variante nueva sin firma. Investigar: ¿falso positivo del ML o ataque desconocido?
+- **`suricata_only`** — Solo Suricata disparó. Puede ser **falso negativo del ML** (no aprendió esa variante) o **falso positivo de la firma**.
+- **`both_clean`** — Ambos dicen "benigno". Probablemente tráfico legítimo.
 
 En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos los ataques HTTP**; el ML solo ve lo que procesa el sensor (capturas puntuales + flujos inyectados). Por eso `suricata_only` es común.
 """)
@@ -1200,10 +1200,10 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                 sev_df = pd.DataFrame(
                     [{"Severidad": k, "Conteo": v} for k, v in sorted(sev_counts.items())])
                 c1, c2 = st.columns(2)
-                c1.subheader("🚦 Severidad (1=high, 3=low)")
+                c1.subheader("Severidad (1=high, 3=low)")
                 c1.dataframe(sev_df, use_container_width=True, hide_index=True)
 
-                c2.subheader("📜 Últimas 20 alertas")
+                c2.subheader("Últimas 20 alertas")
                 last = []
                 for a in alerts[-20:]:
                     last.append({
@@ -1216,11 +1216,11 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                 c2.dataframe(pd.DataFrame(last), use_container_width=True,
                              hide_index=True, height=400)
 
-                st.subheader("🔀 Correlación ML↔Suricata por flujo (5-tupla)")
+                st.subheader("Correlación ML↔Suricata por flujo (5-tupla)")
                 ml_preds = load_sensor_predictions(limit=2000)
                 if not ml_preds:
                     st.info(
-                        "Sin predicciones ML aún. Ve al tab **⚔️ Ataques** y lanza "
+                        "Sin predicciones ML aún. Ve al tab **Ataques** y lanza "
                         "un ataque vía sensor para poblar `sensor_predictions.jsonl`."
                     )
                 else:
@@ -1231,9 +1231,9 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                              / total if total else 0)
                     k1, k2, k3, k4, k5 = st.columns(5)
                     k1.metric("Flujos correlacionados", total)
-                    k2.metric("🔴 Ambos detectaron", vc.get('both_detected', 0))
-                    k3.metric("🟡 Solo ML", vc.get('ml_only', 0))
-                    k4.metric("🟠 Solo Suricata", vc.get('suricata_only', 0))
+                    k2.metric("Ambos detectaron", vc.get('both_detected', 0))
+                    k3.metric("Solo ML", vc.get('ml_only', 0))
+                    k4.metric("Solo Suricata", vc.get('suricata_only', 0))
                     k5.metric("Acuerdo", f"{agree:.0%}")
 
                     # Matriz 2x2 visual
@@ -1253,10 +1253,10 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                     st.plotly_chart(fig, use_container_width=True)
 
                     verdict_badge = {
-                        'both_detected': '🔴 Ambos detectaron',
-                        'ml_only': '🟡 Solo ML (zero-day?)',
-                        'suricata_only': '🟠 Solo Suricata',
-                        'both_clean': '🟢 Ambos limpio',
+                        'both_detected': 'Ambos detectaron',
+                        'ml_only': 'Solo ML (zero-day?)',
+                        'suricata_only': 'Solo Suricata',
+                        'both_clean': 'Ambos limpio',
                     }
                     df_corr = pd.DataFrame([
                         {**r, 'Veredicto': verdict_badge.get(r['Veredicto'], r['Veredicto'])}
@@ -1269,7 +1269,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                                      if r['Veredicto'] in ('ml_only', 'suricata_only')]
                     if discrepancias:
                         with st.expander(
-                                f"⚠️ Discrepancias ML ↔ Suricata ({len(discrepancias)})",
+                                f"Discrepancias ML ↔ Suricata ({len(discrepancias)})",
                                 expanded=False):
                             st.caption(
                                 "Flujos donde un sistema alerta y el otro no. "
@@ -1289,7 +1289,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                     })
             else:
                 st.info(
-                    "Aún no hay alertas Suricata. Ve al tab **⚔️ Ataques** y "
+                    "Aún no hay alertas Suricata. Ve al tab **Ataques** y "
                     "lanza payloads HTTP para generar alertas."
                 )
         except Exception as e:
@@ -1299,7 +1299,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
     history = load_history()
     if history:
         st.divider()
-        st.subheader("🕑 Historial de snapshots de correlación")
+        st.subheader("Historial de snapshots de correlación")
         df_hist = pd.DataFrame([
             {
                 'Hora': h.get('timestamp', '')[:19].replace('T', ' '),
@@ -1315,7 +1315,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
         try:
             with open(LAB_HISTORY_PATH, 'rb') as fh:
                 st.download_button(
-                    "⬇️ Descargar histórico (JSONL)", data=fh.read(),
+                    "Descargar histórico (JSONL)", data=fh.read(),
                     file_name='lab_history.jsonl', mime='application/x-ndjson',
                 )
         except Exception:
