@@ -284,12 +284,12 @@ volumes:
   grafana_data:
 
 # ── Red interna ───────────────────────────────────────────────
-# Nombre fijo (sin prefijo del proyecto) para que setup.sh pueda
-# pre-crearla y detectar el bridge ID antes del 'compose up'.
+# external:true → setup.sh la pre-crea con 'docker network create
+# --subnet 172.25.0.0/24 ids_network' para detectar el bridge ID
+# antes del 'compose up'. Compose la adopta sin validar labels.
+# Cleanup: 'docker compose down' NO la borra; usar 'docker network
+# rm ids_network' manualmente si querés removerla.
 networks:
   ids_network:
     name: ids_network
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.25.0.0/24
+    external: true
