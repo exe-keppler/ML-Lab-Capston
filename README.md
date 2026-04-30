@@ -116,7 +116,7 @@ material de estudio: un alumno los lee en orden y reproduce el pipeline.
 |---|---|---|
 | 01 | [01_eda.ipynb](notebooks/01_eda.ipynb) | Exploración inicial CICIDS2017 (distribución de clases, schema, NaN/Inf, encoding) |
 | 02 | [02_cleaning_preprocessing.ipynb](notebooks/02_cleaning_preprocessing.ipynb) | Drop constantes, fix encoding, mapeo a 6 categorías, deduplicación, normalización de columnas |
-| 03 | _en construcción_ | Feature audit (drop por leakage + VIF para colinealidad, llegar a las 47 features finales) |
+| 03 | [03_feature_audit.ipynb](notebooks/03_feature_audit.ipynb) | Feature audit: aliases, drop por leakage (Init_Win_Bytes, SYN/CWE/ECE), redundancia (Avg_*, Subflow_*) y VIF iterativo. Llega a las 47 features (43/47 matchean v3 directo) |
 | 04 | _en construcción_ | Baselines (LogReg, KNN, RF inicial) — comparación con métricas |
 | 05 | _en construcción_ | Hyperparameter tuning del Random Forest |
 | 06 | _en construcción_ | Modelo final + export de joblibs + manifest SHA-256 |
