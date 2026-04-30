@@ -118,9 +118,11 @@ logging:
         level: info
         filename: suricata.log
 
-# ── 5. AF-Packet — interfaz del bridge Docker (enterprise tuning)
+# ── 5. AF-Packet — interfaz pasada con -i (enterprise tuning)
+# 'default' aplica a cualquier interface que reciba el flag -i,
+# así no hace falta hardcodear el bridge ID por host.
 af-packet:
-  - interface: br-b779538a33e1
+  - interface: default
     # threads: usar todos los cores disponibles (workers mode)
     threads: auto
     # cluster-type: flow hashing
@@ -147,9 +149,8 @@ af-packet:
     use-emergency-flush: yes
     # Copy mode (for inline IPS)
     # copy-mode: ips
-    # copy-iface: br-b779538a33e1
-  # fallback
-  - interface: default
+    # copy-iface: <interface>
+
 
 # ── 6. App-layer parsers (completo) ────────────────────────────
 app-layer:

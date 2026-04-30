@@ -68,30 +68,50 @@ fi
 # ─────────────────────────────────────────────────────────────
 # 4. Detectar interfaz para Suricata
 # ─────────────────────────────────────────────────────────────
+# Estrategia: pre-crear la red 'ids_network' (nombre fijo en el compose
+# vía 'name: ids_network'), inspeccionar el bridge ID y exportarlo a .env.
+# El compose lee ${SURICATA_INTERFACE} del .env en runtime — sin sed.
+
 if [ -z "${SURICATA_INTERFACE:-}" ]; then
-    # Buscar bridge de la red ids_network si ya existe
-    BRIDGE=$(docker network inspect ids-lab_ids_network 2>/dev/null \
-        | awk -F'"' '/"Id":/ {print substr($4, 1, 12); exit}') || BRIDGE=""
-    if [ -n "$BRIDGE" ]; then
-        SURICATA_INTERFACE="br-$BRIDGE"
+    say "Detectando interfaz para Suricata..."
+
+    if ! docker network inspect ids_network >/dev/null 2>&1; then
+        docker network create \
+            --driver bridge \
+            --subnet 172.25.0.0/24 \
+            ids_network >/dev/null
+        ok "Red docker 'ids_network' creada"
     else
-        SURICATA_INTERFACE="eth0"
+        ok "Red docker 'ids_network' ya existe — se reutiliza"
     fi
-    say "Interfaz Suricata detectada: $SURICATA_INTERFACE"
-    # Actualizar .env
+
+    BRIDGE_ID=$(docker network inspect ids_network -f '{{ .Id }}' 2>/dev/null | cut -c1-12)
+
+    if [ -n "$BRIDGE_ID" ]; then
+        SURICATA_INTERFACE="br-$BRIDGE_ID"
+        ok "Bridge docker detectado: $SURICATA_INTERFACE"
+    else
+        # Fallback: primera NIC física no-loopback / no-docker / no-veth.
+        SURICATA_INTERFACE=$(ip -o link show 2>/dev/null \
+            | awk -F': ' '$2 !~ /^(lo|docker|br-|veth|virbr)/ {print $2; exit}')
+        SURICATA_INTERFACE="${SURICATA_INTERFACE:-eth0}"
+        warn "No se detectó bridge docker; usando interfaz física '$SURICATA_INTERFACE'."
+        warn "Suricata verá tráfico host pero NO el container-to-container del lab."
+    fi
+
+    # Persistir en .env
     if grep -q '^SURICATA_INTERFACE=' .env; then
         sed -i.bak "s|^SURICATA_INTERFACE=.*|SURICATA_INTERFACE=$SURICATA_INTERFACE|" .env && rm -f .env.bak
     else
         echo "SURICATA_INTERFACE=$SURICATA_INTERFACE" >> .env
     fi
+else
+    ok "SURICATA_INTERFACE ya definido en .env: $SURICATA_INTERFACE"
 fi
 
-# Actualizar el compose con la interfaz detectada (reemplazo literal)
-# El compose tiene hardcoded 'br-b779538a33e1' por defecto — lo reemplazamos.
-if grep -q 'br-b779538a33e1' docker-compose.yml; then
-    sed -i.bak "s|br-b779538a33e1|$SURICATA_INTERFACE|g" docker-compose.yml && rm -f docker-compose.yml.bak
-    ok "Interfaz aplicada al compose: $SURICATA_INTERFACE"
-fi
+# Re-exportar para que 'docker compose' vea el valor actualizado
+# (el primer 'source .env' pudo haber leído un valor vacío).
+export SURICATA_INTERFACE
 
 # ─────────────────────────────────────────────────────────────
 # 5. Directorios runtime
