@@ -117,7 +117,7 @@ material de estudio: un alumno los lee en orden y reproduce el pipeline.
 | 01 | [01_eda.ipynb](notebooks/01_eda.ipynb) | Exploración inicial CICIDS2017 (distribución de clases, schema, NaN/Inf, encoding) |
 | 02 | [02_cleaning_preprocessing.ipynb](notebooks/02_cleaning_preprocessing.ipynb) | Drop constantes, fix encoding, mapeo a 6 categorías, deduplicación, normalización de columnas |
 | 03 | [03_feature_audit.ipynb](notebooks/03_feature_audit.ipynb) | Feature audit: aliases, drop por leakage (Init_Win_Bytes, SYN/CWE/ECE), redundancia (Avg_*, Subflow_*) y VIF iterativo. Llega a las 47 features (43/47 matchean v3 directo) |
-| 04 | _en construcción_ | Baselines (LogReg, KNN, RF inicial) — comparación con métricas |
+| 04 | [04_baselines.ipynb](notebooks/04_baselines.ipynb) | Split estratificado 70/15/15 + baselines (LogReg/KNN/RF default). Comparación apples-to-apples en val balanced y val full. RF gana, F1-macro 0.64 (full) → 0.95 (balanced) — gap a cerrar con tuning |
 | 05 | _en construcción_ | Hyperparameter tuning del Random Forest |
 | 06 | _en construcción_ | Modelo final + export de joblibs + manifest SHA-256 |
 | 07 | [01_adversarial_evasion.ipynb](notebooks/01_adversarial_evasion.ipynb) | Evaluación adversarial con HopSkipJump (84% tasa de evasión, L2 ≈ 0.003) |
