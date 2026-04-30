@@ -27,7 +27,8 @@ services:
       ml_api:
         condition: service_healthy
     networks:
-      - ids_network
+      ids_network:
+        ipv4_address: 172.25.0.5
     mem_limit: 128m
     cpus: "0.25"
     cap_drop: [ALL]
@@ -50,7 +51,8 @@ services:
       - ./models:/app/models:ro
       - ./logs:/app/logs:rw
     networks:
-      - ids_network
+      ids_network:
+        ipv4_address: 172.25.0.10
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
       interval: 15s
@@ -83,7 +85,8 @@ services:
       ml_api:
         condition: service_healthy
     networks:
-      - ids_network
+      ids_network:
+        ipv4_address: 172.25.0.11
     mem_limit: 512m
     cpus: "0.5"
     cap_drop: [ALL]
@@ -111,7 +114,8 @@ services:
       ml_api:
         condition: service_healthy
     networks:
-      - ids_network
+      ids_network:
+        ipv4_address: 172.25.0.12
     mem_limit: 1536m
     cpus: "2.0"
     cap_drop: [ALL]
