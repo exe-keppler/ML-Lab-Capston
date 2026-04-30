@@ -1,0 +1,157 @@
+{
+  "version": "v4",
+  "features": 47,
+  "classes": [
+    "Benign",
+    "Brute Force",
+    "DDoS",
+    "DoS",
+    "Reconnaissance",
+    "Web Attack"
+  ],
+  "n_train": 42516,
+  "n_test": 347072,
+  "rf": {
+    "best_params": {
+      "n_estimators": 200,
+      "max_depth": null,
+      "min_samples_leaf": 5,
+      "class_weight": "balanced_subsample"
+    },
+    "binary": {
+      "modelo": "RF binary",
+      "F1_macro": 0.9875,
+      "F1_weighted": 0.9937,
+      "accuracy": 0.9937
+    },
+    "multiclass": {
+      "modelo": "RF multiclass",
+      "F1_macro": 0.663,
+      "F1_weighted": 0.9727,
+      "accuracy": 0.9565
+    },
+    "multiclass_per_class": {
+      "Benign": {
+        "precision": 0.9992341294604867,
+        "recall": 0.9501550910316925,
+        "f1-score": 0.9740767880103416,
+        "support": 296600.0
+      },
+      "Brute Force": {
+        "precision": 0.6883910386965377,
+        "recall": 0.9854227405247813,
+        "f1-score": 0.8105515587529976,
+        "support": 1372.0
+      },
+      "DDoS": {
+        "precision": 0.9961034912718204,
+        "recall": 0.9984897406520155,
+        "f1-score": 0.997295188556567,
+        "support": 19202.0
+      },
+      "DoS": {
+        "precision": 0.9580728820321851,
+        "recall": 0.9914327002477291,
+        "f1-score": 0.9744673655732161,
+        "support": 29064.0
+      },
+      "Reconnaissance": {
+        "precision": 0.06708289054197662,
+        "recall": 0.9844054580896686,
+        "f1-score": 0.12560626787712972,
+        "support": 513.0
+      },
+      "Web Attack": {
+        "precision": 0.050610539845758355,
+        "recall": 0.9813084112149533,
+        "f1-score": 0.0962566844919786,
+        "support": 321.0
+      },
+      "accuracy": 0.9565047021943573,
+      "macro avg": {
+        "precision": 0.6265824953081275,
+        "recall": 0.9818690236268067,
+        "f1-score": 0.6630423088770384,
+        "support": 347072.0
+      },
+      "weighted avg": {
+        "precision": 0.9921301179351704,
+        "recall": 0.9565047021943573,
+        "f1-score": 0.9726816574004888,
+        "support": 347072.0
+      }
+    }
+  },
+  "xgboost": {
+    "best_params": {
+      "learning_rate": 0.1,
+      "max_depth": 6,
+      "n_estimators": 500,
+      "subsample": 0.8,
+      "objective": "multi:softmax"
+    },
+    "binary": {
+      "modelo": "XGBoost binary",
+      "F1_macro": 0.9814,
+      "F1_weighted": 0.9906,
+      "accuracy": 0.9905
+    },
+    "multiclass": {
+      "modelo": "XGBoost multiclass",
+      "F1_macro": 0.6508,
+      "F1_weighted": 0.9746,
+      "accuracy": 0.9609
+    },
+    "multiclass_per_class": {
+      "Benign": {
+        "precision": 0.9994214065465733,
+        "recall": 0.9550977747808497,
+        "f1-score": 0.976757015822883,
+        "support": 296600.0
+      },
+      "Brute Force": {
+        "precision": 0.544466800804829,
+        "recall": 0.9861516034985423,
+        "f1-score": 0.7015815400570391,
+        "support": 1372.0
+      },
+      "DDoS": {
+        "precision": 0.988357716876159,
+        "recall": 0.999166753463181,
+        "f1-score": 0.9937328430103072,
+        "support": 19202.0
+      },
+      "DoS": {
+        "precision": 0.9627393421842685,
+        "recall": 0.9930154142581888,
+        "f1-score": 0.9776430337725687,
+        "support": 29064.0
+      },
+      "Reconnaissance": {
+        "precision": 0.07627765064836003,
+        "recall": 0.9746588693957114,
+        "f1-score": 0.1414827391058291,
+        "support": 513.0
+      },
+      "Web Attack": {
+        "precision": 0.06023864511162433,
+        "recall": 0.9750778816199377,
+        "f1-score": 0.11346746420155882,
+        "support": 321.0
+      },
+      "accuracy": 0.9608813156924212,
+      "macro avg": {
+        "precision": 0.605250260361969,
+        "recall": 0.9805280495027352,
+        "f1-score": 0.6507774393283644,
+        "support": 347072.0
+      },
+      "weighted avg": {
+        "precision": 0.9917059451438919,
+        "recall": 0.9608813156924212,
+        "f1-score": 0.9746495817935332,
+        "support": 347072.0
+      }
+    }
+  }
+}
