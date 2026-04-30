@@ -42,6 +42,21 @@ El script:
 6. Levanta los 11 contenedores y espera healthchecks.
 7. Imprime las URLs de acceso.
 
+### Dataset CICIDS2017 (opcional pero recomendado)
+
+El parquet `datasets/cicids_v3_test.parquet` (1.3 MB) alimenta la tab
+"Dataset" del dashboard y la inyección de flujos del sensor. No está
+en el repo (gitignored). Para obtenerlo:
+
+```bash
+# Necesita ~/.kaggle/kaggle.json (https://www.kaggle.com/settings)
+./build/scripts/get_dataset.sh
+```
+
+El script descarga el dataset desde Kaggle, mapea labels a 6 categorías,
+normaliza nombres de columnas (con aliases para variantes de CICIDS2017),
+balancea a 2000 muestras/clase y escribe el parquet listo para el lab.
+
 ## Acceso por defecto
 
 > ⚠️ **Cambia las credenciales en producción.** Editá `.env` antes de correr `setup.sh`.
