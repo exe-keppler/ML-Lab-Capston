@@ -408,7 +408,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\"",
+          "expr": "{job=\"suricata\"} |= \"\\\"event_type\\\":\\\"alert\\\"\" | json",
           "refId": "A"
         }
       ],

@@ -408,7 +408,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{job=\"ml_predictions\", model=\"xgb\"}",
+          "expr": "{job=\"ml_predictions\", model=\"xgb\"} | json",
           "refId": "A"
         }
       ],
