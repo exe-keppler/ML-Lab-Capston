@@ -624,9 +624,12 @@ def do_capture(duration, attack_type, intensity, request_id=None):
         print(f"[Sensor] Modelos a consultar: {models_to_query}")
 
         # all_preds_by_model: dict[modelo -> list(predictions)]
+        # SHAP off por default en hot path: TreeExplainer en batch grande
+        # agrega ~10s por modelo. Streamlit y consultas SOC ad-hoc lo
+        # activan via ?explain=true (default API). El sensor pasa explain=false.
         all_preds_by_model = {m: [] for m in models_to_query}
         for model_name in models_to_query:
-            predict_path = f'/predict/batch?model={model_name}'
+            predict_path = f'/predict/batch?model={model_name}&explain=false'
             for i in range(0, len(model_inputs), 100):
                 batch = model_inputs[i:i + 100]
                 try:
