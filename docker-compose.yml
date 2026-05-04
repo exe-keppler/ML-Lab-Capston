@@ -35,7 +35,7 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # ── 2. ML API (FastAPI + Random Forest v1) ──────────────────
+  # ── 2. ML API (FastAPI + RF v2 + XGBoost v2 + SHAP) ─────────
   ml_api:
     build:
       context: ./build/ml_api
@@ -47,6 +47,11 @@ services:
       - IDS_API_KEY=${IDS_API_KEY:?set in .env}
       - IDS_RATE_LIMIT=${IDS_RATE_LIMIT:-120/minute}
       - PYTHONPATH=/app/src
+    # Puerto expuesto al host: el banner de setup.sh lo anuncia como
+    # endpoint directo (con X-API-Key obligatoria). Para acceso desde
+    # browser con BasicAuth adicional, usar el proxy nginx en :80/api/.
+    ports:
+      - "8000:8000"
     volumes:
       - ./models:/app/models:ro
       - ./logs:/app/logs:rw
