@@ -17,10 +17,46 @@ Material para una exposición de ~45 minutos a estudiantes universitarios sobre 
 
 ```bash
 cd Presentacion
-python3 build_pptx.py     # → exports/Laboratorio-IDS-ML.pptx (30 slides)
+python3 build_pptx.py     # → exports/Laboratorio-IDS-ML.pptx (31 slides)
 ```
 
 Requisitos: `pip install --user python-pptx`.
+
+## Alimentar Grafana con data continua (`lab_feeder.sh`)
+
+Para que los 3 dashboards SOC (Suricata + RF v2 + XGBoost v2) tengan
+data fresca durante la presentación, usar el feeder que dispara
+capturas con params random en bucle infinito.
+
+```bash
+# En el server del lab:
+scp Presentacion/lab_feeder.sh operador@<host>:/tmp/
+ssh operador@<host>
+
+# Lanzar (sobrevive al cierre del SSH):
+sudo setsid nohup bash /tmp/lab_feeder.sh > /tmp/lab_feeder.log 2>&1 < /dev/null &
+
+# Ver progreso:
+tail -f /tmp/lab_feeder.log
+
+# Detener:
+sudo pkill -f lab_feeder.sh
+```
+
+Cada iteración:
+- Sleep 30–180s random.
+- Ataque random (`scan` / `flood` / `mixed` / `bruteforce` / `normal`).
+- Intensity 40–80, duration 8–18s.
+- POST a `/capture/start` del sensor.
+
+**Nota sobre Promtail**: si los dashboards SOC ML muestran "No data"
+después de mucho tiempo sin capturas, posiblemente `positions.yaml` de
+Promtail quedó stale. Reset:
+
+```bash
+sudo docker exec ids-promtail rm -f /tmp/positions.yaml
+sudo docker restart ids-promtail
+```
 
 ## Cómo agregar capturas reales
 

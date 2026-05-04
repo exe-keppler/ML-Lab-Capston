@@ -232,7 +232,7 @@ def add_image_or_placeholder(slide, x, y, w, h, image_filename, caption=""):
 # ════════════════════════════════════════════════════════════════
 # SLIDES
 # ════════════════════════════════════════════════════════════════
-TOTAL = 30  # update si agrega/quita
+TOTAL = 31  # update si agrega/quita
 
 # ─── Slide 1: Portada ───
 def slide_portada():
@@ -841,23 +841,39 @@ def slide_demo():
     add_footer(s, 26, TOTAL)
 
 
-# ─── Slide 27: Capturas ───
+# ─── Slide 27: Capturas Streamlit + Suricata ───
 def slide_capturas():
     s = add_blank_slide()
-    add_title_bar(s, "Capturas del lab")
-    add_image_or_placeholder(s, 0.4, 1.2, 6.2, 3.5,
-                              "01_streamlit_metricas.png",
+    add_title_bar(s, "Capturas del lab — Streamlit + Suricata")
+    add_image_or_placeholder(s, 0.4, 1.2, 6.2, 2.8,
+                              "01_streamlit_intro.png",
+                              "Streamlit · tab Intro")
+    add_image_or_placeholder(s, 6.8, 1.2, 6.2, 2.8,
+                              "02_streamlit_metricas.png",
                               "Streamlit · tab Métricas (matriz en vivo)")
-    add_image_or_placeholder(s, 6.8, 1.2, 6.2, 3.5,
-                              "02_streamlit_shap.png",
+    add_image_or_placeholder(s, 0.4, 4.2, 6.2, 2.6,
+                              "03_streamlit_shap.png",
                               "Streamlit · tab Predicción con SHAP")
-    add_image_or_placeholder(s, 0.4, 5.0, 6.2, 1.7,
-                              "03_grafana_suricata.png",
+    add_image_or_placeholder(s, 6.8, 4.2, 6.2, 2.6,
+                              "04_grafana_suricata.png",
                               "Grafana · SOC Suricata")
-    add_image_or_placeholder(s, 6.8, 5.0, 6.2, 1.7,
-                              "04_grafana_rf.png",
-                              "Grafana · SOC Random Forest v2")
     add_footer(s, 27, TOTAL)
+
+
+# ─── Slide 27b: Capturas Grafana ML + Jupyter ───
+def slide_capturas_2():
+    s = add_blank_slide()
+    add_title_bar(s, "Capturas del lab — ML SOC + Jupyter")
+    add_image_or_placeholder(s, 0.4, 1.2, 6.2, 2.8,
+                              "05_grafana_rf.png",
+                              "Grafana · SOC Random Forest v2")
+    add_image_or_placeholder(s, 6.8, 1.2, 6.2, 2.8,
+                              "06_grafana_xgb.png",
+                              "Grafana · SOC XGBoost v2")
+    add_image_or_placeholder(s, 0.4, 4.2, 12.6, 2.6,
+                              "07_jupyter_overview.png",
+                              "JupyterLab · 8 notebooks ejecutables (01 EDA → 08 inference validation)")
+    add_footer(s, 28, TOTAL)
 
 
 # ─── Slide 28: Recursos ───
@@ -875,10 +891,10 @@ def slide_recursos():
                   ["docs.streamlit.io",                           "Streamlit"],
                   ["grafana.com/docs/loki",                       "Grafana Loki"],
               ], body_size=13)
-    add_footer(s, 28, TOTAL)
+    add_footer(s, 29, TOTAL)
 
 
-# ─── Slide 29: Q&A ───
+# ─── Slide 30: Q&A ───
 def slide_qa():
     s = add_blank_slide()
     bg = s.shapes.add_shape(MSO_SHAPE.RECTANGLE, 0, 0, SLIDE_W, SLIDE_H)
@@ -944,6 +960,7 @@ slide_seccion5()
 slide_extender()
 slide_demo()
 slide_capturas()
+slide_capturas_2()
 slide_recursos()
 slide_qa()
 slide_cierre()
