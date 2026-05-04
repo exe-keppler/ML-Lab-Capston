@@ -241,6 +241,9 @@ def write_predictions_jsonl(request_id, predictions, window_start, window_end):
                     'confidence': float(p.get('category_confidence', 0) or 0),
                     'is_attack': bool(p.get('is_attack', False)),
                     'n_packets': int(p.get('n_packets', 0) or 0),
+                    # Tag de modelo (rf|xgb) para que Loki indexe y los
+                    # dashboards SOC filtren por el detector específico.
+                    'model': p.get('model', 'rf'),
                 }
                 f.write(json.dumps(entry, ensure_ascii=False) + '\n')
     except Exception as e:
