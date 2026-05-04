@@ -61,6 +61,9 @@ scrape_configs:
             is_attack: is_attack
             n_packets: n_packets
             model: model
+            # SHAP top features — la lista cruda no se indexa como label
+            # (sería cardinalidad explosiva); se mantiene en el log line
+            # y queda accesible via | json en queries Loki.
       - labels:
           category:
           is_attack:

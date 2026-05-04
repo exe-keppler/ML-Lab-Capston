@@ -993,40 +993,52 @@ with tab_pred:
                     else:
                         st.caption("—")
 
-            # Explicación heurística
-            st.markdown("### Explicación heurística")
+            # Explicación SHAP — qué features contribuyeron más a ESTA decisión
+            top_contribs = resp.get("top_contributions", [])
+            st.markdown("### ¿Por qué predijo esa categoría? (SHAP)")
             st.caption(
-                "Aproximación **educativa** de qué features pesaron. "
-                "Score = `|valor normalizado| × importancia_Gini`. "
-                "Para explicaciones formales se usa SHAP (no implementado en este lab)."
+                "Los valores **SHAP** muestran cuánto contribuyó cada feature al score "
+                f"de la clase predicha (`{category}`) **respecto al baseline**. "
+                "Positivo (rojo) = empuja la predicción hacia esta clase; "
+                "negativo (azul) = empuja hacia otra clase. La magnitud absoluta indica fuerza."
             )
-            if m.get("feature_importance_gini_top20"):
-                rows = []
-                for item in m["feature_importance_gini_top20"][:10]:
-                    fname = item["feature"]
-                    if fname in feat_cols:
-                        fidx = feat_cols.index(fname)
-                        val = features[fidx]
-                        imp = item["importance"]
-                        col_max = float(df[fname].max()) or 1.0
-                        norm_val = abs(val) / col_max if col_max else 0
-                        rows.append({
-                            "Feature": fname,
-                            "Valor actual": round(val, 3),
-                            "Importancia Gini": round(imp, 4),
-                            "Score heurístico": round(imp * norm_val, 4),
-                        })
-                rows.sort(key=lambda r: r["Score heurístico"], reverse=True)
-                expl_df = pd.DataFrame(rows)
-                fig = px.bar(
-                    expl_df.head(10),
-                    x="Score heurístico", y="Feature",
-                    orientation="h", color="Score heurístico",
-                    color_continuous_scale="Oranges",
+            if top_contribs:
+                shap_df = pd.DataFrame(top_contribs)
+                shap_df["abs_shap"] = shap_df["shap"].abs()
+                shap_df["direction"] = shap_df["shap"].apply(
+                    lambda v: "↑ a favor de " + category if v > 0 else "↓ en contra"
                 )
-                fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=350)
+                # Orden: el más fuerte arriba
+                shap_df = shap_df.sort_values("abs_shap", ascending=True)
+                fig = px.bar(
+                    shap_df,
+                    x="shap", y="feature",
+                    orientation="h",
+                    color="shap",
+                    color_continuous_scale=[(0, "blue"), (0.5, "lightgray"), (1, "red")],
+                    color_continuous_midpoint=0,
+                    hover_data=["value", "direction"],
+                )
+                fig.update_layout(yaxis={'categoryorder': 'total ascending'},
+                                  height=350,
+                                  xaxis_title="Contribución SHAP",
+                                  yaxis_title="")
                 st.plotly_chart(fig, use_container_width=True)
-                st.dataframe(expl_df, hide_index=True, use_container_width=True)
+                # Tabla detallada
+                display_df = shap_df[["feature", "value", "shap", "direction"]].sort_values(
+                    "shap", key=abs, ascending=False
+                ).rename(columns={"feature": "Feature",
+                                   "value": "Valor (escalado)",
+                                   "shap": "SHAP",
+                                   "direction": "Efecto"})
+                display_df["SHAP"] = display_df["SHAP"].round(4)
+                display_df["Valor (escalado)"] = display_df["Valor (escalado)"].round(4)
+                st.dataframe(display_df, hide_index=True, use_container_width=True)
+            else:
+                st.info(
+                    "El API no devolvió contribuciones SHAP. "
+                    "Verificá que `SHAP_ENABLED=1` en el container ml_api."
+                )
 
             with st.expander("Respuesta completa del ML API (JSON)"):
                 st.json(resp)

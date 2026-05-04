@@ -96,6 +96,67 @@ model_metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() el
 
 logger.info(f"  OK. Features: {len(feature_names)}, categorías: {list(label_encoder.classes_)}")
 
+# ── SHAP TreeExplainers (Nivel 3 — explicabilidad per-flujo) ─────
+# TreeExplainer es eficiente para ensembles de árboles (RF, XGBoost).
+# Se computa shap_values por instancia → array de [n_classes, n_features]
+# (multi) o [n_features] (binary). Para cada predicción devolvemos los
+# top-N features con mayor |shap| de la clase predicha.
+import shap
+SHAP_TOP_N = int(os.environ.get("SHAP_TOP_N", "5"))
+SHAP_ENABLED = os.environ.get("SHAP_ENABLED", "1") == "1"
+
+shap_rf = None
+shap_xgb = None
+if SHAP_ENABLED:
+    try:
+        logger.info("Inicializando SHAP TreeExplainers...")
+        shap_rf = shap.TreeExplainer(rf_multi)
+        if xgb_multi is not None:
+            shap_xgb = shap.TreeExplainer(xgb_multi)
+        logger.info(f"  SHAP listo (top_n={SHAP_TOP_N}).")
+    except Exception as e:
+        logger.warning(f"  SHAP no disponible: {e} — endpoints devolverán top_contributions=[]")
+        shap_rf = None
+        shap_xgb = None
+
+def explain_top_features(explainer, X_scaled: np.ndarray, predicted_classes: np.ndarray,
+                         feat_names: list, top_n: int = SHAP_TOP_N) -> list:
+    """Devuelve, para cada fila de X_scaled, los top_n features con mayor |SHAP|
+    contribuyendo a la clase predicha. Lista de listas de dicts {feature, shap, value}.
+    Si explainer es None devuelve [] por fila."""
+    if explainer is None or not SHAP_ENABLED:
+        return [[] for _ in range(len(X_scaled))]
+    try:
+        sv = explainer.shap_values(X_scaled)
+        # Normalizar shape: queremos array (n_samples, n_features) por clase predicha.
+        # sklearn RF: list de n_classes arrays (n_samples, n_features).
+        # XGBoost multi: array (n_samples, n_features, n_classes).
+        results = []
+        for i in range(len(X_scaled)):
+            cls = int(predicted_classes[i])
+            if isinstance(sv, list):
+                # RF style — sv[cls] es (n_samples, n_features)
+                row = sv[cls][i] if cls < len(sv) else sv[0][i]
+            elif sv.ndim == 3:
+                # XGBoost — sv es (n_samples, n_features, n_classes)
+                row = sv[i, :, cls] if cls < sv.shape[2] else sv[i, :, 0]
+            else:
+                # binary o single output
+                row = sv[i]
+            # Top N por magnitud absoluta
+            mag = np.abs(row)
+            top_idx = np.argsort(mag)[-top_n:][::-1]
+            entry = [{
+                "feature": feat_names[k],
+                "shap":    round(float(row[k]), 6),
+                "value":   round(float(X_scaled[i, k]), 6),
+            } for k in top_idx]
+            results.append(entry)
+        return results
+    except Exception as e:
+        logger.warning(f"explain_top_features falló: {e}")
+        return [[] for _ in range(len(X_scaled))]
+
 # ── Auth ──────────────────────────────────────────────────────
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
@@ -152,23 +213,23 @@ def health():
 
 
 def _resolve_models(model: str):
-    """Devuelve (binary, multi) según el query param model=rf|xgb. Default rf."""
+    """Devuelve (binary, multi, explainer) según el query param model=rf|xgb."""
     m = (model or "rf").lower()
     if m == "rf":
-        return rf_binary, rf_multi
+        return rf_binary, rf_multi, shap_rf
     if m == "xgb":
         if xgb_multi is None:
             raise HTTPException(400, "XGBoost no disponible (no hay xgb_*.joblib en manifest)")
-        return xgb_binary, xgb_multi
+        return xgb_binary, xgb_multi, shap_xgb
     raise HTTPException(400, f"model debe ser 'rf' o 'xgb', got '{model}'")
 
 
 @app.post("/predict", dependencies=[Depends(require_api_key)])
 @limiter.limit(RATE_LIMIT)
-def predict(request: Request, flow: FlowInput, model: str = "rf"):
+def predict(request: Request, flow: FlowInput, model: str = "rf", explain: bool = True):
     t0 = time.perf_counter()
     _validate(flow.features)
-    bin_clf, mc_clf = _resolve_models(model)
+    bin_clf, mc_clf, mc_explainer = _resolve_models(model)
     X = np.array(flow.features).reshape(1, -1)
     X_s = scaler.transform(X)
     bin_pred = int(bin_clf.predict(X_s)[0])
@@ -177,6 +238,13 @@ def predict(request: Request, flow: FlowInput, model: str = "rf"):
     mc_proba = mc_clf.predict_proba(X_s)[0]
     category = label_encoder.inverse_transform([mc_pred])[0]
     mitre = get_mitre_info(category)
+    # SHAP top contributions para la clase predicha
+    top_contributions = []
+    if explain:
+        contribs = explain_top_features(mc_explainer, X_s, np.array([mc_pred]),
+                                        list(feature_names))
+        if contribs:
+            top_contributions = contribs[0]
     elapsed = (time.perf_counter() - t0) * 1000
     return {
         "model": model,
@@ -185,13 +253,14 @@ def predict(request: Request, flow: FlowInput, model: str = "rf"):
         "category": category,
         "category_confidence": round(float(mc_proba[mc_pred]), 4),
         "mitre": mitre,
+        "top_contributions": top_contributions,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "processing_time_ms": round(elapsed, 2),
     }
 
 @app.post("/predict/batch", dependencies=[Depends(require_api_key)])
 @limiter.limit(RATE_LIMIT)
-def predict_batch(request: Request, batch: BatchInput, model: str = "rf"):
+def predict_batch(request: Request, batch: BatchInput, model: str = "rf", explain: bool = True):
     t0 = time.perf_counter()
     if not batch.flows:
         raise HTTPException(400, "Empty batch")
@@ -199,7 +268,7 @@ def predict_batch(request: Request, batch: BatchInput, model: str = "rf"):
         raise HTTPException(400, f"Max batch size is {MAX_BATCH_SIZE}")
     for i, f in enumerate(batch.flows):
         _validate(f, i)
-    bin_clf, mc_clf = _resolve_models(model)
+    bin_clf, mc_clf, mc_explainer = _resolve_models(model)
     X = np.array(batch.flows)
     X_s = scaler.transform(X)
     bin_preds = bin_clf.predict(X_s)
@@ -207,6 +276,12 @@ def predict_batch(request: Request, batch: BatchInput, model: str = "rf"):
     mc_preds = mc_clf.predict(X_s)
     mc_probas = mc_clf.predict_proba(X_s)
     categories = label_encoder.inverse_transform(mc_preds)
+    # SHAP en batch — TreeExplainer es eficiente, escala bien para 100-500 flujos.
+    if explain:
+        contribs_per_flow = explain_top_features(mc_explainer, X_s, mc_preds,
+                                                  list(feature_names))
+    else:
+        contribs_per_flow = [[] for _ in range(len(batch.flows))]
     results = []
     for i in range(len(batch.flows)):
         cat = categories[i]
@@ -216,6 +291,7 @@ def predict_batch(request: Request, batch: BatchInput, model: str = "rf"):
             "category": cat,
             "category_confidence": round(float(mc_probas[i][mc_preds[i]]), 4),
             "mitre": get_mitre_info(cat),
+            "top_contributions": contribs_per_flow[i],
         })
     attack_count = sum(1 for r in results if r["is_attack"])
     cat_dist = {}

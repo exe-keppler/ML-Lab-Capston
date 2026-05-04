@@ -227,6 +227,11 @@ def write_predictions_jsonl(request_id, predictions, window_start, window_end):
         os.makedirs(LOGS_DIR, exist_ok=True)
         with open(PREDICTIONS_JSONL, 'a') as f:
             for p in predictions:
+                # SHAP: extraer solo nombres de top features para Loki
+                # (los valores van como JSON anidado, no se indexan como
+                # label pero quedan visibles en el log stream).
+                top_contribs = p.get('top_contributions', []) or []
+                top_features = [c.get('feature') for c in top_contribs if c.get('feature')]
                 entry = {
                     'request_id': request_id,
                     'timestamp': datetime.now(timezone.utc).isoformat(),
@@ -244,6 +249,12 @@ def write_predictions_jsonl(request_id, predictions, window_start, window_end):
                     # Tag de modelo (rf|xgb) para que Loki indexe y los
                     # dashboards SOC filtren por el detector específico.
                     'model': p.get('model', 'rf'),
+                    # SHAP top-N — explicabilidad per-flujo (Nivel 3).
+                    # 'top_features' es la lista plana de nombres, fácil de
+                    # graficar en Grafana. 'top_contributions' tiene los
+                    # valores SHAP completos para inspección en Streamlit.
+                    'top_features': top_features,
+                    'top_contributions': top_contribs,
                 }
                 f.write(json.dumps(entry, ensure_ascii=False) + '\n')
     except Exception as e:
