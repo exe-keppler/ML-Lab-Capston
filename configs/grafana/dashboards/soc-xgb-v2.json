@@ -429,44 +429,6 @@
         "sortOrder": "Descending",
         "enableLogDetails": true
       }
-    },
-    {
-      "id": 99,
-      "title": "SHAP \u2014 Top features que disparan ataques (frecuencia 30m)",
-      "type": "bargauge",
-      "datasource": {
-        "type": "loki",
-        "uid": "loki"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 44,
-        "w": 24,
-        "h": 10
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "loki",
-            "uid": "loki"
-          },
-          "expr": "topk(15, sum by (feature) (count_over_time({job=\"ml_predictions\", model=\"xgb\", is_attack=\"true\"} | json top_feats=\"top_features\" | label_format feature=\"{{.top_feats}}\" [30m])))",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "showUnfilled": true
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "continuous-RdYlGr"
-          },
-          "unit": "short"
-        }
-      }
     }
   ]
 }
