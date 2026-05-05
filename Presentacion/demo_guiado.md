@@ -218,6 +218,83 @@ arranca con git clone y un notebook. Los invito a hacer fork."*
 
 ---
 
+## Paso 8 (opcional, avanzado) — Tráfico externo: nmap desde la laptop del estudiante
+
+**Objetivo pedagógico**: mostrar la diferencia arquitectónica entre un IDS
+host-mode (Suricata) y un detector ML in-network (sensor del lab), y cómo
+se complementan en un SOC.
+
+### Pre-requisito: que Suricata vea la NIC física
+
+Por default Suricata escucha el bridge docker (`br-XXXXXXXX`), así que NO
+ve nada que entre por la NIC física del host. Para esta demo:
+
+```bash
+# En el server, editar .env
+sudo sed -i 's|^SURICATA_INTERFACE=.*|SURICATA_INTERFACE=any|' .env
+# Recrear el container con la nueva interfaz
+sudo docker compose up -d suricata
+sudo docker logs --tail 5 ids-suricata   # debe decir "running in workers mode"
+```
+
+Para volver al default después de la demo, dejar `SURICATA_INTERFACE=` vacío
+y correr `setup.sh` o `docker compose up -d suricata` otra vez.
+
+### Workflow (3 pasos)
+
+**Paso 1 — Estudiante lanza nmap desde su laptop**:
+
+```bash
+# Desde la laptop del estudiante (no desde el server)
+nmap -sS -p 1-1000 192.168.122.10
+```
+
+**Paso 2 — Verificar que Suricata detectó**:
+
+Abrir `http://192.168.122.10:3000/d/soc-suricata`. En el panel **Top firmas**
+buscar entradas tipo `ET SCAN Possible Nmap User-Agent` o `ET POLICY Suspicious
+inbound to mySQL`. La IP origen del estudiante aparece en **Top src_ip flagged**.
+
+**Paso 3 — Reproducir el mismo TIPO de ataque internamente para que el ML lo clasifique**:
+
+```bash
+# Desde el server, simular el scan dentro del lab
+curl -X POST http://192.168.122.10:9999/capture/start \
+  -H "Content-Type: application/json" \
+  -d '{"attack_type":"scan","duration":15,"intensity":80}'
+```
+
+Esperar 20s. Refrescar `http://192.168.122.10:3000/d/soc-rf-v2` y `/soc-xgb-v2`:
+ambos clasifican el flujo como **Reconnaissance** con alta confidence.
+
+### La pregunta inevitable: "¿por qué el ML no detectó el nmap externo directamente?"
+
+**Respuesta arquitectónica** (esto es la frase clave de la demo):
+
+> *"Suricata corre en `network_mode: host`, ve todas las interfaces. El ML sensor
+> está dentro del bridge docker — solo ve tráfico que pasa por su veth. Esto **no
+> es una limitación del lab**: es representativo de cómo se despliega ML en SOC
+> reales. Suricata es IDS host-level clásico; un detector ML se despliega como
+> NDR conectado a mirror port o como colector NetFlow/IPFIX, nunca como sniffer
+> host-mode. Por eso el ejercicio del lab es lanzar el ataque externamente para
+> ver Suricata, y reproducirlo internamente para ver el ML — son dos puntos de
+> visibilidad distintos, complementarios."*
+
+### Apéndice C: endpoint `/capture/passive` (extensión futura)
+
+Existe un endpoint pasivo en el sensor (no genera tráfico, solo escucha):
+
+```bash
+curl -X POST http://192.168.122.10:9999/capture/passive \
+  -H "Content-Type: application/json" \
+  -d '{"duration":30,"interface":"","bpf_filter":"ip and tcp"}'
+```
+
+Útil si en el futuro alguien relanza el sensor en `network_mode: host` para
+experimentar con captura externa real (requiere cambios en compose y `API_URL`).
+
+---
+
 ## Apéndice A — Plan B si algo falla en vivo
 
 | Síntoma | Solución rápida |

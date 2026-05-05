@@ -268,6 +268,24 @@ class CaptureRequest(BaseModel):
     inject_dataset: bool = True  # Inyectar flujos reales del CICIDS2017
 
 
+class PassiveCaptureRequest(BaseModel):
+    """Captura pasiva: NO genera tráfico, solo escucha.
+
+    Útil para clasificar tráfico generado por una herramienta externa
+    (ej. nmap desde la laptop del estudiante contra DVWA). El sensor
+    sniff'a sobre `interface` por `duration` segundos, extrae flujos
+    con CICFlowMeter y los envía a la ML API.
+
+    Limitación: el sensor corre en bridge docker, así que sólo ve
+    tráfico que pase por SU veth (broadcast/multicast + tráfico a/desde
+    su propia MAC). Para ver tráfico externo entrando a DVWA hay que
+    relanzar el container con network_mode: host (ver demo_guiado.md).
+    """
+    duration: int = 30
+    interface: str = ""  # Vacío → usa CAPTURE_INTERFACE (default eth0)
+    bpf_filter: str = "ip and (tcp or udp) and not port 9999"
+
+
 def generate_traffic(target, duration, attack_type, intensity):
     """Genera trafico de ataque real usando Scapy (raw packets).
 
@@ -710,6 +728,178 @@ def do_capture(duration, attack_type, intensity, request_id=None):
         traceback.print_exc()
 
 
+def do_capture_passive(duration, interface, bpf_filter, request_id=None):
+    """Captura pasiva: solo escucha (sin generar tráfico).
+
+    Procesa con CICFlowMeter, llama a la ML API para todos los modelos
+    disponibles y persiste cada predicción en sensor_predictions.jsonl
+    con tag `model` (rf|xgb) — exactamente igual que do_capture, pero
+    sin la fase de generate_traffic ni inject_dataset.
+    """
+    global capture_state
+
+    if not request_id:
+        request_id = f"req-{uuid.uuid4().hex[:12]}"
+    window_start = time.time()
+    iface = interface or INTERFACE
+
+    capture_state.update({
+        'status': 'capturing', 'start_time': datetime.now().isoformat(),
+        'duration': duration, 'packets_captured': 0, 'flows_extracted': 0,
+        'results': None, 'error': None, 'request_id': request_id,
+    })
+
+    import tempfile
+    csv_tmpfile = tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, dir='/tmp')
+    csv_path = csv_tmpfile.name
+    csv_tmpfile.close()
+    session = FlowSession(output_mode='csv', output=csv_path, verbose=False)
+    packet_count = 0
+    original_process = session.process
+
+    def counting_process(pkt):
+        nonlocal packet_count
+        if IP in pkt:
+            if TCP in pkt and (pkt[TCP].sport == 9999 or pkt[TCP].dport == 9999):
+                return
+        packet_count += 1
+        capture_state['packets_captured'] = packet_count
+        try:
+            original_process(pkt)
+        except Exception:
+            pass
+
+    try:
+        print(f"[Sensor] Captura PASIVA {duration}s | iface={iface} | bpf='{bpf_filter}'")
+        sniff(iface=iface, prn=counting_process, timeout=duration,
+              filter=bpf_filter, store=False)
+
+        capture_state['status'] = 'processing'
+        try:
+            session.garbage_collect(force=True)
+        except Exception:
+            pass
+
+        with open(csv_path, 'r') as f:
+            csv_content = f.read()
+
+        flows_data = []
+        if csv_content.strip():
+            reader = csv.DictReader(io.StringIO(csv_content))
+            for row in reader:
+                flows_data.append(row)
+
+        if not flows_data:
+            try:
+                raw_flows = session.get_flows()
+                if raw_flows:
+                    for flow in raw_flows:
+                        flows_data.append(flow.get_data())
+            except Exception:
+                pass
+
+        capture_state['flows_extracted'] = len(flows_data)
+        print(f"[Sensor] Pasiva: {packet_count} pkts → {len(flows_data)} flujos")
+
+        if not flows_data:
+            capture_state['status'] = 'done'
+            capture_state['results'] = {
+                'request_id': request_id, 'mode': 'passive',
+                'window_start': window_start, 'window_end': time.time(),
+                'timestamp': datetime.now().isoformat(),
+                'interface': iface, 'bpf_filter': bpf_filter,
+                'packets': packet_count, 'flows': 0, 'predictions': [],
+                'summary': {'total': 0, 'attacks_detected': 0, 'benign': 0,
+                            'category_distribution': {}},
+            }
+            return
+
+        model_inputs = []
+        flow_metadata = []
+        for fd in flows_data:
+            model_inputs.append(cicflow_to_model_features(fd))
+            flow_metadata.append({
+                'src_ip': fd.get('src_ip', fd.get('Src IP', '?')),
+                'dst_ip': fd.get('dst_ip', fd.get('Dst IP', '?')),
+                'src_port': fd.get('src_port', fd.get('Src Port', 0)),
+                'dst_port': fd.get('dst_port', fd.get('Dst Port', 0)),
+                'protocol': fd.get('protocol', fd.get('Protocol', 0)),
+            })
+
+        models_to_query = ['rf']
+        try:
+            h = httpx.get(f'{API_URL}/health', timeout=5).json()
+            models_to_query = h.get('available_models', ['rf'])
+        except Exception:
+            pass
+
+        all_preds_by_model = {m: [] for m in models_to_query}
+        for model_name in models_to_query:
+            predict_path = f'/predict/batch?model={model_name}&explain=false'
+            for i in range(0, len(model_inputs), 100):
+                batch = model_inputs[i:i + 100]
+                try:
+                    resp = httpx.post(f'{API_URL}{predict_path}', headers=API_HEADERS,
+                                      json={'flows': batch}, timeout=30)
+                    if resp.status_code == 200:
+                        all_preds_by_model[model_name].extend(resp.json().get('predictions', []))
+                    else:
+                        print(f"[Sensor] ML API {predict_path} HTTP {resp.status_code}: {resp.text[:120]}")
+                except Exception as e:
+                    print(f"[Sensor] Error batch ({model_name}): {e}")
+
+        def _enrich(preds, model_name):
+            out = []
+            for j, pred in enumerate(preds):
+                pred = dict(pred)
+                pred['model'] = model_name
+                if j < len(flow_metadata):
+                    pred.update(flow_metadata[j])
+                    try:
+                        fwd = flows_data[j].get('total_fwd_packets', flows_data[j].get('Total Fwd Packets', 0))
+                        bwd = flows_data[j].get('total_bwd_packets', flows_data[j].get('Total Backward Packets', 0))
+                        pred['n_packets'] = int(float(fwd)) + int(float(bwd))
+                    except Exception:
+                        pred['n_packets'] = 0
+                out.append(pred)
+            return out
+
+        enriched = _enrich(all_preds_by_model.get('rf', []), 'rf')
+        enriched_all = list(enriched)
+        for m in models_to_query:
+            if m != 'rf':
+                enriched_all.extend(_enrich(all_preds_by_model.get(m, []), m))
+
+        attacks = [p for p in enriched if p.get('is_attack')]
+        cat_dist = {}
+        for p in enriched:
+            cat_dist[p.get('category', '?')] = cat_dist.get(p.get('category', '?'), 0) + 1
+
+        window_end = time.time()
+        capture_state['status'] = 'done'
+        capture_state['results'] = {
+            'request_id': request_id, 'mode': 'passive',
+            'window_start': window_start, 'window_end': window_end,
+            'timestamp': datetime.now().isoformat(),
+            'interface': iface, 'bpf_filter': bpf_filter,
+            'packets': packet_count, 'flows': len(enriched), 'predictions': enriched,
+            'summary': {
+                'total': len(enriched), 'attacks_detected': len(attacks),
+                'benign': len(enriched) - len(attacks),
+                'category_distribution': cat_dist,
+            },
+        }
+        write_predictions_jsonl(request_id, enriched_all, window_start, window_end)
+        print(f"[Sensor] Pasiva OK: {len(enriched)} flujos, {len(attacks)} ataques req={request_id}")
+
+    except Exception as e:
+        capture_state['status'] = 'error'
+        capture_state['error'] = str(e)
+        print(f"[Sensor] Error captura pasiva: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "ids-sensor", "version": "3.0.0",
@@ -730,6 +920,23 @@ def start_capture(req: CaptureRequest):
     return {"message": f"CICFlowMeter: ataque '{req.attack_type}' ({req.duration}s, "
             f"{req.intensity}/s) contra {TARGET_IP}", "status": "capturing",
             "request_id": request_id}
+
+
+@app.post("/capture/passive")
+def start_capture_passive(req: PassiveCaptureRequest):
+    """Captura pasiva (no genera tráfico). Para clasificar tráfico
+    externo (ej. nmap desde la laptop del estudiante contra DVWA)."""
+    if capture_state['status'] == 'capturing':
+        return {"error": "Captura en progreso", "status": "capturing",
+                "request_id": capture_state.get('request_id')}
+    request_id = f"req-{uuid.uuid4().hex[:12]}"
+    t = threading.Thread(target=do_capture_passive,
+                         args=(req.duration, req.interface, req.bpf_filter, request_id))
+    t.daemon = True
+    t.start()
+    iface = req.interface or INTERFACE
+    return {"message": f"Captura pasiva {req.duration}s sobre iface={iface}",
+            "status": "capturing", "request_id": request_id, "mode": "passive"}
 
 
 @app.get("/capture/status")
