@@ -603,118 +603,225 @@ un **IDS híbrido**. Objetivos pedagógicos:
 # TAB 2: Dataset Explorer
 # ═══════════════════════════════════════════════════════════════
 with tab_dataset:
-    st.header("Dataset CICIDS2017 — los datos del entrenamiento")
+    st.header("¿Con qué datos se entrenó el modelo?")
+
     df = load_dataset()
     if df is None:
         st.error(f"Dataset no encontrado en `{DATASET_PATH}`. "
                  "Asegúrate de que el volumen `./datasets` esté montado.")
         st.stop()
 
-    st.caption(
-        "Fuente: **ericanacletoribeiro/cicids2017-cleaned-and-preprocessed** (Kaggle). "
-        "Subset balanceado (2000 muestras por clase) → se usó para entrenar y evaluar el modelo. "
-        "Aquí ves exactamente los datos con los que el RF aprendió a distinguir ataques."
+    st.markdown(
+        "**CICIDS2017** es uno de los datasets más usados para entrenar IDS por ML. "
+        "Lo armó el Canadian Institute for Cybersecurity capturando **5 días de tráfico real** "
+        "en una red controlada, ejecutando ataques a propósito en horarios programados. "
+        "El subset que ves abajo es **balanceado** (mismo número de muestras por clase) — "
+        "no es el ratio que verías en producción, pero es necesario para que el modelo "
+        "aprenda a reconocer todas las categorías por igual."
     )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Filas totales", f"{len(df):,}")
-    c2.metric("Features por flujo", len(df.columns) - 1)
-    c3.metric("Clases", df['Label_6'].nunique())
-    c4.metric("% ataques", f"{(df['Label_6'] != 'Benign').mean():.0%}")
-
-    st.divider()
-    st.subheader("Distribución de clases")
-    cat_counts = df['Label_6'].value_counts().reindex(CATEGORY_ORDER).dropna()
-    fig = px.pie(
-        values=cat_counts.values, names=cat_counts.index,
-        color=cat_counts.index, color_discrete_map=CATEGORY_COLORS, hole=0.4,
-    )
-    fig.update_traces(textinfo='label+percent+value')
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.info(
-        "**Observación clave**: el dataset está **balanceado** (~2000/clase). "
-        "En datos reales el tráfico benigno domina ~99%. Si no balanceas, un modelo "
-        "perezoso que diga **'Benign' siempre** parece tener 99% de accuracy. "
-        "Por eso usamos F1 (no accuracy) y balanceamos al entrenar."
-    )
-
-    st.divider()
-    st.subheader("Distribución de una feature por clase")
     feat_cols = [c for c in df.columns if c != 'Label_6']
+    per_class = int(df['Label_6'].value_counts().min())
+
+    # ──── 4 headlines ────
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric(
+        "Flujos",
+        f"{len(df):,}",
+        help="Cada fila del dataset es un flujo de red (secuencia de paquetes entre 2 endpoints).",
+    )
+    c2.metric(
+        "Features por flujo",
+        len(feat_cols),
+        help="Estadísticas calculadas por CICFlowMeter sobre cada flujo: duración, "
+             "tamaño promedio de paquete, flags TCP, IAT, etc.",
+    )
+    c3.metric(
+        "Clases",
+        df['Label_6'].nunique(),
+        help="Benign + 5 familias de ataque (DoS, DDoS, Brute Force, Reconnaissance, Web Attack).",
+    )
+    c4.metric(
+        "Balance",
+        f"{per_class:,} / clase",
+        help="Mismo número de muestras por clase para que el modelo no se vuelva 'perezoso' "
+             "prediciendo siempre la clase mayoritaria. En tráfico real, benigno sería ~99%.",
+    )
+
+    st.divider()
+
+    # ──── ¿Cómo se distribuyen? ────
+    st.subheader("¿Cómo se distribuyen las clases?")
+    cat_counts = df['Label_6'].value_counts().reindex(CATEGORY_ORDER).fillna(0)
+    bar_df = pd.DataFrame({'Clase': cat_counts.index, 'Muestras': cat_counts.values.astype(int)})
+    fig = px.bar(
+        bar_df, x='Muestras', y='Clase', orientation='h',
+        color='Clase', color_discrete_map=CATEGORY_COLORS,
+        text='Muestras',
+    )
+    fig.update_traces(textposition='outside')
+    fig.update_layout(height=320, showlegend=False, yaxis={'categoryorder': 'array',
+                                                            'categoryarray': CATEGORY_ORDER[::-1]})
+    st.plotly_chart(fig, use_container_width=True)
+    st.info(
+        f"📌 Las 6 clases tienen **{per_class:,} muestras cada una** — perfectamente balanceadas. "
+        "Esto es **intencional**: si entrenás con la distribución real (~99% benigno), el modelo "
+        "aprende a decir 'Benign' a todo y parece tener 99% de accuracy sin haber detectado ningún ataque. "
+        "Por eso balanceamos al entrenar y **medimos con F1-macro** (no accuracy)."
+    )
+
+    st.divider()
+
+    # ──── ¿Qué features separan mejor las clases? ────
+    st.subheader("¿Qué features separan mejor las clases?")
+    st.markdown(
+        "Elegí una feature y mirá cómo distribuye sus valores cada clase. "
+        "Si los rangos de distintos colores **NO se solapan**, esa feature por sí sola "
+        "ya distingue ataques. Si se solapan mucho, el modelo necesita combinarla con otras."
+    )
+
     c1, c2 = st.columns([3, 1])
     with c1:
         default_feat = "Flow_Duration" if "Flow_Duration" in feat_cols else feat_cols[0]
         feature_choice = st.selectbox(
-            "Feature", options=feat_cols, index=feat_cols.index(default_feat),
+            "Feature",
+            options=feat_cols,
+            index=feat_cols.index(default_feat),
+            key="ds_feature_choice",
+            help="Tip: empezá por `Flow_Duration`, `Total_Fwd_Packets`, `Flow_Bytes_per_s`.",
         )
     with c2:
-        st.write("")
-        use_log = st.checkbox("Escala log", value=True,
-                              help="Las features de CICIDS tienen mucha asimetría; log ayuda a ver distribuciones.")
-    fig = px.histogram(
-        df, x=feature_choice, color='Label_6',
-        color_discrete_map=CATEGORY_COLORS,
-        marginal="box", nbins=40, log_y=use_log,
-        category_orders={'Label_6': CATEGORY_ORDER},
-    )
-    fig.update_layout(height=450)
-    st.plotly_chart(fig, use_container_width=True)
+        viz_type = st.radio(
+            "Vista",
+            options=["Box plot", "Histograma"],
+            horizontal=True,
+            key="ds_viz_type",
+            help="Box plot: más fácil de comparar entre clases. Histograma: forma de la distribución.",
+        )
 
-    st.caption(
-        "Si las barras de distintos colores **no se solapan**, esa feature es muy útil "
-        "para distinguir esa clase. Si se solapan mucho, no ayuda."
-    )
-
-    st.divider()
-    st.subheader("Correlación entre features más importantes")
-    st.caption(
-        "Pares con correlación cerca de ±1 son **redundantes** (el modelo podría ignorar una). "
-        "Valores cerca de 0 significan features independientes."
-    )
-    m = fetch_metrics()
-    top10 = [x["feature"] for x in m.get("feature_importance_gini_top20", [])[:10]]
-    top10 = [f for f in top10 if f in df.columns]
-    if len(top10) >= 3:
-        corr = df[top10].corr()
-        fig = px.imshow(
-            corr, color_continuous_scale='RdBu_r',
-            zmin=-1, zmax=1, text_auto='.2f', aspect='auto',
+    if viz_type == "Box plot":
+        fig = px.box(
+            df, x='Label_6', y=feature_choice,
+            color='Label_6', color_discrete_map=CATEGORY_COLORS,
+            category_orders={'Label_6': CATEGORY_ORDER},
+            points=False, log_y=True,
+        )
+        fig.update_layout(height=420, showlegend=False,
+                          xaxis_title="", yaxis_title=feature_choice + "  (log)")
+    else:
+        fig = px.histogram(
+            df, x=feature_choice, color='Label_6',
+            color_discrete_map=CATEGORY_COLORS,
+            marginal="box", nbins=40, log_y=True,
+            category_orders={'Label_6': CATEGORY_ORDER},
         )
         fig.update_layout(height=450)
-        st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
 
-    with st.expander("Ver muestra aleatoria de filas"):
-        n = st.slider("N filas", 10, 200, 50, 10)
+    # Diagnóstico automático: qué clase se distingue más para esta feature
+    try:
+        # Comparar las medianas: la clase con mediana MÁS lejos de las demás
+        # es la "más distinguible" por esta feature sola.
+        med = df.groupby('Label_6')[feature_choice].median()
+        # Excluir clases que no estén en CATEGORY_ORDER (defensive)
+        med = med.reindex([c for c in CATEGORY_ORDER if c in med.index]).dropna()
+        if len(med) >= 2:
+            distances = pd.Series({
+                c: abs(med[c] - med.drop(c).median()) for c in med.index
+            })
+            most_distinct = distances.idxmax()
+            ref_others = float(med.drop(most_distinct).median())
+            md_val = float(med[most_distinct])
+            if ref_others != 0 and md_val != 0:
+                ratio = md_val / ref_others if abs(md_val) > abs(ref_others) else ref_others / md_val
+                ratio_txt = f"{abs(ratio):.1f}×"
+            else:
+                ratio_txt = "muy distinto"
+            st.info(
+                f"📌 Para **`{feature_choice}`**, la clase que más se distingue es "
+                f"**{most_distinct}** — su mediana ({md_val:,.2f}) es **{ratio_txt}** "
+                f"la de las demás ({ref_others:,.2f}). El modelo va a usar mucho esta feature "
+                f"cuando vea tráfico {most_distinct}."
+            )
+    except Exception:
+        pass
+
+    st.divider()
+
+    # ──── Expander: detalle avanzado ────
+    with st.expander("📊 Detalle avanzado (muestra cruda, correlaciones, calidad, descarga)"):
+        # — Random sample —
+        st.markdown("### Ver filas crudas del dataset")
+        n = st.slider("Cuántas filas mostrar", 10, 200, 30, 10, key="ds_sample_n")
         st.dataframe(df.sample(n, random_state=42).reset_index(drop=True),
-                     use_container_width=True)
+                     use_container_width=True, height=300)
+        st.caption(
+            "Las features están **escaladas con StandardScaler** (media 0, std 1) — por eso "
+            "ves valores negativos. El modelo entrena sobre estos valores, no los crudos."
+        )
 
-    with st.expander("Calidad de datos (missing / inf / constantes)"):
+        # — Correlation matrix —
+        st.markdown("### Correlación entre las top features del modelo")
+        st.caption(
+            "Dos features muy correlacionadas (cerca de **+1** o **-1**) son **redundantes**: "
+            "el modelo podría usar una sola sin perder info. Cerca de **0** son independientes."
+        )
+        m_metrics = fetch_metrics()
+        top10 = [x["feature"] for x in m_metrics.get("feature_importance_gini_top20", [])[:10]]
+        top10 = [f for f in top10 if f in df.columns]
+        if len(top10) >= 3:
+            corr = df[top10].corr()
+            fig = px.imshow(
+                corr, color_continuous_scale='RdBu_r',
+                zmin=-1, zmax=1, text_auto='.2f', aspect='auto',
+            )
+            fig.update_layout(height=450)
+            st.plotly_chart(fig, use_container_width=True)
+            # Identificar el par más correlacionado (informativo)
+            try:
+                corr_abs = corr.abs()
+                np.fill_diagonal(corr_abs.values, 0)
+                max_pair_idx = corr_abs.stack().idxmax()
+                max_pair_val = corr.loc[max_pair_idx[0], max_pair_idx[1]]
+                if abs(max_pair_val) > 0.9:
+                    st.warning(
+                        f"⚠️ Las features **{max_pair_idx[0]}** y **{max_pair_idx[1]}** "
+                        f"están correlacionadas a **{max_pair_val:+.2f}** — son casi la misma "
+                        "información. Auditoría VIF las habría dropeado; en este modelo "
+                        "ambas sobrevivieron al filtro."
+                    )
+            except Exception:
+                pass
+
+        # — Calidad —
+        st.markdown("### Calidad de los datos")
         n_nulls = int(df.isna().sum().sum())
         n_inf = int(np.isinf(df.select_dtypes(include='number')).sum().sum())
         constant_cols = [c for c in df.columns if c != 'Label_6' and df[c].nunique() <= 1]
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Valores nulos (NaN)", f"{n_nulls:,}")
-        c2.metric("Valores infinitos", f"{n_inf:,}")
-        c3.metric("Cols constantes", len(constant_cols))
+        qc1, qc2, qc3 = st.columns(3)
+        qc1.metric("Valores nulos (NaN)", f"{n_nulls:,}")
+        qc2.metric("Valores infinitos", f"{n_inf:,}")
+        qc3.metric("Cols constantes", len(constant_cols))
         if constant_cols:
             st.caption(f"Constantes: {', '.join(constant_cols)}")
         else:
             st.caption(
-                "Cero nulos, cero infinitos, cero constantes — dataset ya pasó el "
-                "preprocessing del notebook 02. Lo que ves es lo que entró al modelo."
+                "Sin nulos, sin infinitos, sin constantes — el dataset ya pasó el preprocessing "
+                "del notebook 02. Lo que ves es exactamente lo que entró al modelo."
             )
 
-    try:
-        with open(DATASET_PATH, 'rb') as fh:
-            st.download_button(
-                "Descargar dataset (parquet, 1.3 MB)",
-                data=fh.read(),
-                file_name='cicids_test.parquet',
-                mime='application/octet-stream',
-            )
-    except Exception:
-        pass
+        # — Download —
+        st.markdown("### Descargar")
+        try:
+            with open(DATASET_PATH, 'rb') as fh:
+                st.download_button(
+                    "Descargar dataset (parquet, ~1.3 MB)",
+                    data=fh.read(),
+                    file_name='cicids_test.parquet',
+                    mime='application/octet-stream',
+                )
+        except Exception:
+            pass
 
 
 # ═══════════════════════════════════════════════════════════════
