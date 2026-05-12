@@ -885,9 +885,18 @@ with tab_pred:
                 sample = pool.sample(1).iloc[0]
                 st.session_state.preset_features = sample[feat_cols].tolist()
                 st.session_state.preset_label = cat
-                # Limpiar sliders anteriores
+                # Resetear sliders al valor del nuevo preset. Streamlit
+                # NO resetea widgets ya renderizados al sólo popear la key
+                # (conserva el estado interno); hay que asignar el valor
+                # nuevo explícitamente en session_state antes del rerun.
                 for f in top_features:
-                    st.session_state.pop(f"slider_{f}", None)
+                    col_min = float(df[f].min())
+                    col_max = float(df[f].max())
+                    if col_min == col_max:
+                        col_max = col_min + 1.0
+                    st.session_state[f"slider_{f}"] = max(
+                        col_min, min(col_max, float(sample[f]))
+                    )
                 st.rerun()
 
     st.caption(f"Preset actual: **{st.session_state.preset_label}** (muestra aleatoria del dataset).")
