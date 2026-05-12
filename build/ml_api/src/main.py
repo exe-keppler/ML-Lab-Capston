@@ -94,6 +94,22 @@ if f"xgb_binary_{MODEL_VERSION}.joblib" in manifest:
 metrics_path = MODEL_DIR / f"metrics_{MODEL_VERSION}.json"
 model_metrics = json.loads(metrics_path.read_text()) if metrics_path.exists() else {}
 
+# Inyectar feature_importance de XGBoost al diccionario de métricas en
+# tiempo de arranque. El JSON precomputado solo trae feature_importance
+# del RF; el dashboard necesita las de XGB para mostrar sliders correctas
+# cuando el usuario elige XGBoost como modelo de predicción.
+if xgb_multi is not None and "xgb_feature_importance_gini_top20" not in model_metrics:
+    try:
+        importances = xgb_multi.feature_importances_
+        order = np.argsort(importances)[::-1][:20]
+        model_metrics["xgb_feature_importance_gini_top20"] = [
+            {"feature": str(feature_names[i]), "importance": float(importances[i])}
+            for i in order
+        ]
+        logger.info(f"  XGB feature_importances inyectadas al endpoint /metrics ({len(order)} top).")
+    except Exception as e:
+        logger.warning(f"  No se pudo computar XGB feature_importances: {e}")
+
 logger.info(f"  OK. Features: {len(feature_names)}, categorías: {list(label_encoder.classes_)}")
 
 # ── SHAP TreeExplainers (Nivel 3 — explicabilidad per-flujo) ─────

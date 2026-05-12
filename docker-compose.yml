@@ -83,6 +83,7 @@ services:
       - LOGS_DIR=/app/logs
       - DATASETS_DIR=/app/datasets
       - HOST_IP=${HOST_IP:-localhost}
+      - DVWA_URL=http://172.25.0.50
     volumes:
       - ./logs:/app/logs:rw
       - ./datasets:/app/datasets:ro

@@ -295,6 +295,66 @@ def count_predictions_now():
         return 0
 
 
+# Firmas de Suricata que son del decoder/parser (warnings, no ataques reales).
+# Sin filtrar dominaban el top firmas y tapaban las firmas ET Open de verdad.
+SURICATA_NOISE_PREFIXES = (
+    "SURICATA HTTP ",
+    "SURICATA Applayer ",
+    "SURICATA STREAM ",
+    "SURICATA TLS ",
+    "SURICATA SMTP ",
+    "SURICATA TCPv4 ",
+    "SURICATA IPv4 ",
+    "SURICATA UDP ",
+    "SURICATA ICMPv4 ",
+    "SURICATA Stream ",
+)
+SURICATA_NOISE_CATEGORIES = {
+    "Generic Protocol Command Decode",
+    "Application Layer Protocol Detection",
+}
+
+
+def is_real_alert(alert):
+    """True si la alerta es una firma de ataque real (no warning del decoder)."""
+    a = alert.get("alert", {}) if isinstance(alert, dict) else {}
+    sig = a.get("signature", "")
+    cat = a.get("category", "")
+    if cat in SURICATA_NOISE_CATEGORIES:
+        return False
+    if any(sig.startswith(p) for p in SURICATA_NOISE_PREFIXES):
+        return False
+    return True
+
+
+@st.cache_data(ttl=30, show_spinner=False)
+def load_eve_recent(max_bytes=5_000_000):
+    """Tail de eve.json: lee solo los últimos ~max_bytes en lugar de
+    cargar el archivo completo (que crece a 100+ MB en sesiones largas).
+    Cache 30 s para no relanzar el parse en cada render.
+    Devuelve (alerts, flows, n_lines_recientes, total_size_bytes)."""
+    if not os.path.exists(EVE_JSON_PATH):
+        return [], [], 0, 0
+    try:
+        size = os.path.getsize(EVE_JSON_PATH)
+        with open(EVE_JSON_PATH, 'rb') as f:
+            if size > max_bytes:
+                f.seek(size - max_bytes)
+                f.readline()  # descartar primera línea (probable truncamiento)
+            raw = f.read().decode('utf-8', 'replace').splitlines()
+        alerts, flows = [], []
+        for ln in raw:
+            if '"event_type":"alert"' in ln:
+                try: alerts.append(json.loads(ln))
+                except Exception: pass
+            elif '"event_type":"flow"' in ln:
+                try: flows.append(json.loads(ln))
+                except Exception: pass
+        return alerts, flows, len(raw), size
+    except Exception:
+        return [], [], 0, 0
+
+
 def latest_alert_signatures(n=10):
     if not os.path.exists(EVE_JSON_PATH):
         return []
@@ -490,10 +550,10 @@ un **IDS híbrido**. Objetivos pedagógicos:
     with c2:
         st.markdown("**Análisis / ML**")
         st.markdown("""
-- **ML API** — FastAPI + Random Forest
-- Dos modelos: **binario** (ataque/no) + **multiclase** (6 categorías)
+- **ML API** — FastAPI + Random Forest **+ XGBoost**
+- 4 modelos: RF y XGB, cada uno **binario** (ataque/no) y **multiclase** (6 categorías)
 - Entrenado en **CICIDS2017** (2.5M flujos reales)
-- Mapping automático a **MITRE ATT&CK**
+- Mapping automático a **MITRE ATT&CK** + SHAP per-flujo
 """)
     with c3:
         st.markdown("**Observabilidad**")
@@ -629,6 +689,33 @@ with tab_dataset:
         st.dataframe(df.sample(n, random_state=42).reset_index(drop=True),
                      use_container_width=True)
 
+    with st.expander("Calidad de datos (missing / inf / constantes)"):
+        n_nulls = int(df.isna().sum().sum())
+        n_inf = int(np.isinf(df.select_dtypes(include='number')).sum().sum())
+        constant_cols = [c for c in df.columns if c != 'Label_6' and df[c].nunique() <= 1]
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Valores nulos (NaN)", f"{n_nulls:,}")
+        c2.metric("Valores infinitos", f"{n_inf:,}")
+        c3.metric("Cols constantes", len(constant_cols))
+        if constant_cols:
+            st.caption(f"Constantes: {', '.join(constant_cols)}")
+        else:
+            st.caption(
+                "Cero nulos, cero infinitos, cero constantes — dataset ya pasó el "
+                "preprocessing del notebook 02. Lo que ves es lo que entró al modelo."
+            )
+
+    try:
+        with open(DATASET_PATH, 'rb') as fh:
+            st.download_button(
+                "Descargar dataset (parquet, 1.3 MB)",
+                data=fh.read(),
+                file_name='cicids_test.parquet',
+                mime='application/octet-stream',
+            )
+    except Exception:
+        pass
+
 
 # ═══════════════════════════════════════════════════════════════
 # TAB 3: Métricas del modelo
@@ -650,6 +737,11 @@ with tab_metrics:
         f"Train: {m.get('n_train', 0):,} · "
         f"Val: {m.get('n_val', 0):,} · "
         f"Test: {m.get('n_test', 0):,}"
+    )
+    st.caption(
+        "ℹ️ El **train** es un subsample balanceado (~10k por clase × 6 = 60k antes de filtros) "
+        "tomado del split estratificado original (1.4M flujos). **Val** y **test** quedan con "
+        "el split completo no balanceado para evaluar en distribución real."
     )
 
     c1, c2, c3, c4 = st.columns(4)
@@ -895,8 +987,13 @@ with tab_pred:
 
     feat_cols = [c for c in df.columns if c != 'Label_6']
     m = fetch_metrics()
-    top_features = [x["feature"] for x in m.get("feature_importance_gini_top20", [])[:6]
-                    if x["feature"] in feat_cols]
+    # Top features según el modelo seleccionado por el usuario (default RF).
+    # Las del RF están en feature_importance_gini_top20; las de XGB las inyecta
+    # el ml_api al startup en xgb_feature_importance_gini_top20.
+    _model_pre = st.session_state.get("predict_model_choice", "rf")
+    _imp_key = "xgb_feature_importance_gini_top20" if _model_pre == "xgb" else "feature_importance_gini_top20"
+    _imp_list = m.get(_imp_key) or m.get("feature_importance_gini_top20", [])
+    top_features = [x["feature"] for x in _imp_list[:6] if x["feature"] in feat_cols]
     if not top_features:
         top_features = feat_cols[:6]
 
@@ -928,9 +1025,12 @@ with tab_pred:
                     col_max = float(df[f].max())
                     if col_min == col_max:
                         col_max = col_min + 1.0
-                    st.session_state[f"slider_{f}"] = max(
-                        col_min, min(col_max, float(sample[f]))
-                    )
+                    step = (col_max - col_min) / 1000.0
+                    val = max(col_min, min(col_max, float(sample[f])))
+                    # Cuantizar al mismo step que usará el slider para
+                    # evitar el warning de Streamlit "values in conflict".
+                    val = round((val - col_min) / step) * step + col_min
+                    st.session_state[f"slider_{f}"] = max(col_min, min(col_max, val))
                 st.rerun()
 
     st.caption(f"Preset actual: **{st.session_state.preset_label}** (muestra aleatoria del dataset).")
@@ -949,11 +1049,18 @@ with tab_pred:
         col_max = float(df[fname].max())
         if col_min == col_max:
             col_max = col_min + 1.0
+        # Step explícito (0.1% del rango). Sin él, Streamlit infiere step=1.0
+        # y warnea cuando el value del preset no se alinea con esos steps.
+        step = (col_max - col_min) / 1000.0
         current = float(features[feat_idx])
+        current = max(col_min, min(col_max, current))
+        # Cuantizar current al step más cercano (evita el warning de Streamlit).
+        current = round((current - col_min) / step) * step + col_min
         current = max(col_min, min(col_max, current))
         new_val = slider_cols[i % 2].slider(
             fname,
             min_value=col_min, max_value=col_max, value=current,
+            step=step,
             key=f"slider_{fname}",
             help=f"Rango en dataset: [{col_min:.2f}, {col_max:.2f}]",
         )
@@ -1108,9 +1215,12 @@ with tab_attack:
 
     base_alerts = count_alerts_now()
     base_preds = count_predictions_now()
+    # Mostrar la URL que el usuario PUEDE abrir en su browser (HOST_IP:8080),
+    # no el hostname interno docker `http://dvwa` que no resuelve fuera del network.
+    target_display = f"http://{HOST_IP}:8080" if HOST_IP and HOST_IP != "localhost" else f"{DVWA_URL} (interno docker)"
     st.markdown(
         f"**Baseline actual** — Alertas Suricata: `{base_alerts}` · "
-        f"Predicciones ML: `{base_preds}` · Target: `{DVWA_URL}`"
+        f"Predicciones ML: `{base_preds}` · Target: [{target_display}]({target_display})"
     )
     st.divider()
 
@@ -1326,21 +1436,27 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
         st.info(f"`eve.json` no encontrado en {LOGS_DIR}.")
     else:
         try:
-            lines = open(eve_path).readlines()
-            alerts = [json.loads(l) for l in lines if '"event_type":"alert"' in l]
-            flows = [json.loads(l) for l in lines if '"event_type":"flow"' in l]
+            # Tail con cache (30 s). Antes leía el archivo completo cada
+            # render — con eve.json de 100+ MB esto colgaba el tab.
+            alerts_all, flows, n_recent_lines, eve_size = load_eve_recent()
+            alerts = [a for a in alerts_all if is_real_alert(a)]
+            n_noise = len(alerts_all) - len(alerts)
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Alertas Suricata", f"{len(alerts):,}")
-            c2.metric("Flows observados (Suricata)", f"{len(flows):,}")
-            c3.metric("Eventos eve.json totales", f"{len(lines):,}")
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Alertas reales", f"{len(alerts):,}",
+                      help=f"Excluye {n_noise:,} eventos del decoder (parser warnings) que NO son ataques.")
+            c2.metric("Decoder noise", f"{n_noise:,}",
+                      help="Warnings tipo 'SURICATA HTTP unable to match...' — útiles para troubleshoot, no para SOC.")
+            c3.metric("Flows (Suricata)", f"{len(flows):,}")
+            c4.metric("eve.json size", f"{eve_size/1024/1024:.1f} MB",
+                      help=f"Tail leído: ~5 MB recientes ({n_recent_lines:,} líneas).")
 
             if alerts:
                 sigs = collections.Counter(a.get("alert", {}).get("signature", "?") for a in alerts)
                 sig_df = pd.DataFrame(sigs.most_common(15), columns=["Firma", "Conteo"])
                 fig = px.bar(sig_df, x="Conteo", y="Firma", orientation="h",
                              color="Conteo", color_continuous_scale="Reds",
-                             title="Top 15 firmas Suricata disparadas")
+                             title="Top 15 firmas Suricata (filtrado: solo firmas ET Open reales)")
                 fig.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -1366,24 +1482,47 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                              hide_index=True, height=400)
 
                 st.subheader("Correlación ML↔Suricata por flujo (5-tupla)")
-                ml_preds = load_sensor_predictions(limit=2000)
+                ml_preds_all = load_sensor_predictions(limit=2000)
+                # Excluir predicciones interactivas del tab Predicción
+                # (source='dashboard', src_ip='interactive'); nunca pueden
+                # matchear contra alertas Suricata reales y inflaban `ml_only`.
+                ml_preds = [p for p in ml_preds_all if p.get("source") != "dashboard"]
+                n_dashboard_excluded = len(ml_preds_all) - len(ml_preds)
+                if n_dashboard_excluded > 0:
+                    st.caption(
+                        f"ℹ️ Excluyendo {n_dashboard_excluded} predicciones interactivas "
+                        "del tab Predicción (`source=dashboard`) — su 5-tupla es sintética "
+                        "y no puede emparejarse con tráfico real."
+                    )
                 if not ml_preds:
                     st.info(
-                        "Sin predicciones ML aún. Ve al tab **Ataques** y lanza "
-                        "un ataque vía sensor para poblar `sensor_predictions.jsonl`."
+                        "Sin predicciones ML del sensor aún. Ve al tab **Ataques** y "
+                        "lanza un ataque vía sensor para poblar `sensor_predictions.jsonl`."
                     )
                 else:
                     corr = correlate_5tuple(ml_preds, alerts)
                     vc = collections.Counter(r['Veredicto'] for r in corr)
-                    total = len(corr)
-                    agree = ((vc.get('both_detected', 0) + vc.get('both_clean', 0))
-                             / total if total else 0)
+
+                    # Separar las filas "originadas desde ML" de las
+                    # "Suricata solo sin ML matching" (que `correlate_5tuple`
+                    # apendiza al final con ML categoría = '—').
+                    rows_from_ml = [r for r in corr if r.get('ML categoría') != '—']
+                    rows_suri_unmatched = [r for r in corr if r.get('ML categoría') == '—']
+                    n_ml = len(rows_from_ml)
+                    n_suri_only_extra = len(rows_suri_unmatched)
+                    ml_agree = sum(1 for r in rows_from_ml
+                                   if r['Veredicto'] in ('both_detected', 'both_clean'))
+                    agree = (ml_agree / n_ml) if n_ml else 0
+
                     k1, k2, k3, k4, k5 = st.columns(5)
-                    k1.metric("Flujos correlacionados", total)
+                    k1.metric("Flujos ML analizados", n_ml,
+                              help="Predicciones del sensor en el JSONL, sin contar las interactivas del dashboard.")
                     k2.metric("Ambos detectaron", vc.get('both_detected', 0))
-                    k3.metric("Solo ML", vc.get('ml_only', 0))
-                    k4.metric("Solo Suricata", vc.get('suricata_only', 0))
-                    k5.metric("Acuerdo", f"{agree:.0%}")
+                    k3.metric("Solo ML (zero-day?)", vc.get('ml_only', 0))
+                    k4.metric("Alertas Suricata sin flow ML", n_suri_only_extra,
+                              help="Suricata alertó pero el sensor ML no procesó ese flow (típico: HTTP attacks sin captura sensor).")
+                    k5.metric("Acuerdo (sobre ML)", f"{agree:.0%}",
+                              help="(both_detected + both_clean) / flujos ML analizados.")
 
                     # Matriz 2x2 visual
                     matrix_data = pd.DataFrame(
@@ -1431,15 +1570,15 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                     now_iso = datetime.now(timezone.utc).isoformat()
                     save_history_entry({
                         'timestamp': now_iso,
-                        'n_ml_flows': len(ml_preds),
+                        'n_ml_flows': n_ml,
                         'n_suricata_alerts': len(alerts),
                         'verdicts': dict(vc),
                         'agreement_rate': round(agree, 4),
                     })
             else:
                 st.info(
-                    "Aún no hay alertas Suricata. Ve al tab **Ataques** y "
-                    "lanza payloads HTTP para generar alertas."
+                    "Aún no hay alertas Suricata reales (solo decoder noise filtrado). "
+                    "Ve al tab **Ataques** y lanza payloads HTTP para generar alertas."
                 )
         except Exception as e:
             st.warning(f"Error leyendo eve.json: {e}")
