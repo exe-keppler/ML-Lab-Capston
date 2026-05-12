@@ -71,6 +71,40 @@ def _norm_port(v):
         return 0
 
 
+def _append_interactive_prediction(model: str, resp: dict, preset_label):
+    """Persiste una predicción del tab Predicción al mismo JSONL que escribe
+    el sensor. De ahí Promtail → Loki → Grafana, así las predicciones
+    interactivas aparecen en los dashboards SOC RF/XGBoost junto con las
+    del sensor.
+
+    Marcamos con source='dashboard' y src_ip='interactive' para que un
+    analista pueda filtrar este origen sintético si quiere ver sólo
+    tráfico real capturado."""
+    import uuid
+    entry = {
+        "request_id": f"dash-{uuid.uuid4().hex[:12]}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "src_ip": "interactive",
+        "dst_ip": "interactive",
+        "src_port": 0,
+        "dst_port": 0,
+        "protocol": "interactive",
+        "category": str(resp.get("category", "?")),
+        "confidence": float(resp.get("category_confidence", 0)),
+        "is_attack": bool(resp.get("is_attack", False)),
+        "n_packets": 1,
+        "model": model,
+        "source": "dashboard",
+        "preset_label": preset_label or "?",
+    }
+    try:
+        with open(SENSOR_PREDICTIONS_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception:
+        # Best-effort: no romper la UI si el log no se puede escribir.
+        pass
+
+
 def load_sensor_predictions(limit=2000):
     if not os.path.exists(SENSOR_PREDICTIONS_PATH):
         return []
@@ -948,6 +982,12 @@ with tab_pred:
                 json={"features": features},
                 headers=headers, timeout=10,
             ).json()
+
+            # Persistir al mismo JSONL del sensor para que Grafana también
+            # cuente las predicciones interactivas en los dashboards SOC.
+            _append_interactive_prediction(
+                model_choice, resp, st.session_state.get("preset_label")
+            )
 
             is_attack = resp.get("is_attack", False)
             category = resp.get("category", "?")
