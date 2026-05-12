@@ -721,7 +721,7 @@ with tab_dataset:
 # TAB 3: Métricas del modelo
 # ═══════════════════════════════════════════════════════════════
 with tab_metrics:
-    st.header("Rendimiento del modelo v2")
+    st.header("¿Qué tan bueno es el modelo?")
 
     m = fetch_metrics()
     if not m:
@@ -731,109 +731,49 @@ with tab_metrics:
     bin_t = m.get("binary", {}).get("test", {})
     mc_t = m.get("multiclass", {}).get("test", {})
 
-    st.caption(
-        f"Pipeline: `{m.get('pipeline','?')}` · "
-        f"Features: {m.get('n_features','?')} · "
-        f"Train: {m.get('n_train', 0):,} · "
-        f"Val: {m.get('n_val', 0):,} · "
-        f"Test: {m.get('n_test', 0):,}"
+    # ──── 3 números headline ────
+    c1, c2, c3 = st.columns(3)
+    c1.metric(
+        "Accuracy (categoría)",
+        f"{mc_t.get('accuracy', 0):.1%}",
+        help="De cada 100 flujos del test set, cuántos clasificó en la categoría correcta "
+             "(entre Benign / DDoS / DoS / Brute Force / Reconnaissance / Web Attack).",
     )
-    st.caption(
-        "ℹ️ El **train** es un subsample balanceado (~10k por clase × 6 = 60k antes de filtros) "
-        "tomado del split estratificado original (1.4M flujos). **Val** y **test** quedan con "
-        "el split completo no balanceado para evaluar en distribución real."
+    c2.metric(
+        "F1-macro (categoría)",
+        f"{mc_t.get('f1_macro', 0):.3f}",
+        help="Promedio del F1 por clase, sin ponderar por tamaño. Es la métrica que importa "
+             "cuando las clases están desbalanceadas: si una clase rara va mal, F1-macro baja "
+             "mucho aunque la accuracy siga alta.",
+    )
+    c3.metric(
+        "F1 binario (¿es ataque?)",
+        f"{bin_t.get('f1_weighted', 0):.3f}",
+        help="Independientemente de la categoría: ¿el modelo distingue ataque vs benigno? "
+             "Casi siempre el binario es más fácil que el multiclase.",
     )
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("F1-weighted binario", f"{bin_t.get('f1_weighted', 0):.4f}",
-              help="F1 ponderado por tamaño de clase (binario ataque/no). 1.0 = perfecto. Robusto a desbalance.")
-    c2.metric("F1-macro binario", f"{bin_t.get('f1_macro', 0):.4f}",
-              help="Promedio simple del F1 de las 2 clases (binario). Más estricto si una clase falla.")
-    c3.metric("F1-weighted multiclase", f"{mc_t.get('f1_weighted', 0):.4f}",
-              help="F1 ponderado sobre las 6 categorías de ataque.")
-    c4.metric("F1-macro multiclase", f"{mc_t.get('f1_macro', 0):.4f}",
-              help="F1 macro sobre las 6 categorías — penaliza fuerte si falla una clase rara.")
+    st.caption(
+        f"Evaluado sobre **{m.get('n_test', 0):,}** flujos del test set "
+        f"(nunca vistos en entrenamiento) usando **{m.get('n_features','?')}** features "
+        f"auditadas. Modelo activo: **{m.get('pipeline','?')}**."
+    )
 
     st.divider()
 
-    # ──── Comparativa RF tuned vs XGBoost tuned ────
-    rf_metrics = m.get("rf", {})
-    xgb_metrics = m.get("xgboost", {})
-    if rf_metrics and xgb_metrics:
-        st.subheader("Comparativa RF v2 vs XGBoost v2 (ambos tuneados, en test)")
-        st.caption(
-            "Los dos modelos se entrenaron con los mismos features, dataset y split. "
-            "El ganador (RF) es el que sirve `/predict` por default; XGBoost queda "
-            "disponible vía `/predict?model=xgb`."
-        )
-
-        def _row(label, rf_d, xgb_d):
-            rf_v = rf_d.get("F1_macro", 0)
-            xgb_v = xgb_d.get("F1_macro", 0)
-            winner = "RF" if rf_v > xgb_v else ("XGBoost" if xgb_v > rf_v else "empate")
-            return {
-                "Métrica": label,
-                "RF v2 tuned":      f"{rf_v:.4f}",
-                "XGBoost v2 tuned": f"{xgb_v:.4f}",
-                "Δ (RF - XGB)":     f"{rf_v - xgb_v:+.4f}",
-                "Mejor":            winner,
-            }
-
-        comp_rows = []
-        if rf_metrics.get("binary") and xgb_metrics.get("binary"):
-            comp_rows.append(_row("Binary F1-macro (test)", rf_metrics["binary"], xgb_metrics["binary"]))
-        if rf_metrics.get("multiclass") and xgb_metrics.get("multiclass"):
-            comp_rows.append(_row("Multi F1-macro (test)", rf_metrics["multiclass"], xgb_metrics["multiclass"]))
-            # Accuracy también
-            rf_acc = rf_metrics["multiclass"].get("accuracy", 0)
-            xgb_acc = xgb_metrics["multiclass"].get("accuracy", 0)
-            comp_rows.append({
-                "Métrica": "Multi accuracy (test)",
-                "RF v2 tuned":      f"{rf_acc:.4f}",
-                "XGBoost v2 tuned": f"{xgb_acc:.4f}",
-                "Δ (RF - XGB)":     f"{rf_acc - xgb_acc:+.4f}",
-                "Mejor":            "RF" if rf_acc > xgb_acc else ("XGBoost" if xgb_acc > rf_acc else "empate"),
-            })
-        if comp_rows:
-            st.dataframe(pd.DataFrame(comp_rows), hide_index=True, use_container_width=True)
-            st.caption(
-                "Lectura honesta: el gap suele ser pequeño (~0.02 en F1-macro multi). "
-                "RF gana en este dataset gracias a `class_weight=balanced_subsample` "
-                "que mejora recall en clases minoritarias. XGBoost default (sin tuning extra) "
-                "se queda atrás porque el `sample_weight=1/freq` no compensa tan bien como "
-                "el bagging weighted del RF. Tunear XGBoost más fino podría revertir el resultado."
-            )
-
-        # Hyperparámetros usados
-        rf_params = rf_metrics.get("best_params", {})
-        xgb_params = xgb_metrics.get("best_params", {})
-        with st.expander("Hyperparámetros tuneados"):
-            cc1, cc2 = st.columns(2)
-            cc1.markdown("**RF v2 tuned**")
-            cc1.json(rf_params)
-            cc2.markdown("**XGBoost v2 tuned**")
-            cc2.json(xgb_params)
-        st.divider()
-
-    # ──── Matriz de confusión ────
-    st.subheader("Matriz de confusión — predicciones en vivo")
+    # ──── ¿Dónde se equivoca? — Matriz de confusión (UNA, normalizada) ────
+    st.subheader("¿Dónde se equivoca?")
     st.markdown(
-        "La matriz muestra dónde el modelo **se equivoca entre categorías**. "
-        "Filas = clase real del dataset, columnas = predicción del modelo. "
-        "**Diagonal = aciertos**; fuera de diagonal = confusiones entre clases."
+        "Cada fila es una clase real, cada columna lo que el modelo predijo. "
+        "La **diagonal son aciertos**; fuera de la diagonal, confusiones."
     )
-    st.caption(
-        "Cálculo en vivo: muestreamos 50 flujos por clase del parquet, los enviamos "
-        "a `/predict/batch` del ML API, y comparamos predicciones vs labels reales. "
-        "Cached 10 min."
-    )
+
     cm_col1, cm_col2 = st.columns([3, 1])
     with cm_col1:
-        if st.button("Recalcular matriz de confusión"):
+        if st.button("Recalcular con nueva muestra"):
             st.cache_data.clear()
             st.rerun()
     with cm_col2:
-        # Selector de modelo para la matriz (rf default, xgb si disponible)
         try:
             avail = requests.get(f"{API_URL}/health", timeout=3).json().get("available_models", ["rf"])
         except Exception:
@@ -841,7 +781,7 @@ with tab_metrics:
         cm_model = st.selectbox(
             "Modelo",
             options=avail,
-            format_func=lambda m: {"rf": "RF v2", "xgb": "XGBoost v2"}.get(m, m),
+            format_func=lambda mm: {"rf": "RF v2", "xgb": "XGBoost v2"}.get(mm, mm),
             key="cm_model_choice",
         )
 
@@ -850,124 +790,171 @@ with tab_metrics:
         st.warning("No se pudo calcular (dataset o API no disponible).")
     else:
         cats = CATEGORY_ORDER
-        cm = pd.crosstab(
-            cm_df['y_true'], cm_df['y_pred'],
-            rownames=['Real'], colnames=['Predicho'],
-        )
-        # asegurar todas las clases
+        cm = pd.crosstab(cm_df['y_true'], cm_df['y_pred'],
+                         rownames=['Real'], colnames=['Predicho'])
         for c in cats:
-            if c not in cm.columns:
-                cm[c] = 0
-            if c not in cm.index:
-                cm.loc[c] = 0
+            if c not in cm.columns: cm[c] = 0
+            if c not in cm.index: cm.loc[c] = 0
         cm = cm.loc[cats, cats]
         cm_norm = cm.div(cm.sum(axis=1), axis=0).fillna(0)
 
-        c1, c2 = st.columns(2)
-        with c1:
-            fig = px.imshow(
-                cm, text_auto=True, color_continuous_scale='Blues',
-                aspect='auto', labels=dict(x="Predicho", y="Real", color="Conteo"),
-            )
-            fig.update_layout(height=450, title="Conteos absolutos")
-            st.plotly_chart(fig, use_container_width=True)
-        with c2:
-            fig = px.imshow(
-                cm_norm, text_auto='.0%', color_continuous_scale='Blues',
-                aspect='auto', zmin=0, zmax=1,
-                labels=dict(x="Predicho", y="Real", color="Recall"),
-            )
-            fig.update_layout(height=450,
-                              title="Normalizado por clase real (recall por clase)")
-            st.plotly_chart(fig, use_container_width=True)
+        fig = px.imshow(
+            cm_norm, text_auto='.0%', color_continuous_scale='Blues',
+            aspect='auto', zmin=0, zmax=1,
+            labels=dict(x="Predicho", y="Real", color="% acierto"),
+        )
+        fig.update_layout(height=420)
+        st.plotly_chart(fig, use_container_width=True)
 
         accuracy = (cm_df['y_true'] == cm_df['y_pred']).mean()
         correct = int((cm_df['y_true'] == cm_df['y_pred']).sum())
         st.success(
-            f"**Accuracy en este sample**: {accuracy:.1%} "
-            f"({correct} de {len(cm_df)} predicciones correctas)"
+            f"En este sample: **{accuracy:.0%}** acierto "
+            f"({correct}/{len(cm_df)} predicciones correctas)."
         )
 
-        # diagnóstico automático
-        worst_class = cm_norm.loc[cats, cats].apply(
+        # Diagnóstico automático
+        diag = cm_norm.apply(
             lambda row: row[row.name] if row.name in row.index else 0, axis=1
-        ).idxmin()
-        worst_recall = cm_norm.loc[worst_class, worst_class] if worst_class in cm_norm.columns else 0
-        if worst_recall < 0.8:
-            confused_with = cm_norm.loc[worst_class].drop(worst_class).idxmax() if len(cm_norm.columns) > 1 else "?"
-            st.warning(
-                f"**Clase más débil**: `{worst_class}` con recall {worst_recall:.0%}. "
-                f"Se confunde principalmente con `{confused_with}`. "
-                f"(El parquet bundleado tiene cobertura 47/47 de las features del modelo.)"
+        )
+        worst_class = diag.idxmin()
+        worst_recall = float(diag.loc[worst_class])
+        if worst_recall < 1.0 and len(cm_norm.columns) > 1:
+            confused_with = cm_norm.loc[worst_class].drop(worst_class).idxmax()
+            st.info(
+                f"📌 La clase más débil es **{worst_class}** (recall {worst_recall:.0%}). "
+                f"Cuando se equivoca, suele confundirla con **{confused_with}**."
             )
 
     st.divider()
 
-    # ──── Classification report ────
-    st.subheader("Reporte por clase (multiclase, test del entrenamiento)")
-    cr = m.get("multiclass", {}).get("classification_report", {})
-    rows = []
-    for cls, stats in cr.items():
-        if isinstance(stats, dict) and "f1-score" in stats:
-            rows.append({
-                "Clase": cls,
-                "Precision": round(stats.get("precision", 0), 3),
-                "Recall": round(stats.get("recall", 0), 3),
-                "F1": round(stats.get("f1-score", 0), 3),
-                "Support": int(stats.get("support", 0)),
-            })
-    if rows:
-        st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
-        st.caption(
-            "**Precision** = de todo lo que predije como X, cuánto era X realmente (bajo ⇒ falsos positivos). "
-            "**Recall** = de todo lo que era X realmente, cuánto detecté (bajo ⇒ falsos negativos)."
-        )
-
-    st.divider()
-
-    # ──── Baselines ────
-    st.subheader("Comparativa con modelos baseline")
-    bl = m.get("baselines_on_v1_split", {})
-    if bl:
-        b_df = pd.DataFrame([
-            {"Modelo": "Dummy (clase mayoritaria)",
-             "F1-w": round(bl.get("dummy_majority_f1_weighted", 0), 4),
-             "Descripción": "Siempre predice 'Benign'. Techo inferior trivial."},
-            {"Modelo": f"Stump (1 split en '{bl.get('stump_feature','?')}')",
-             "F1-w": round(bl.get("stump_depth1_f1_weighted", 0), 4),
-             "Descripción": "Árbol de 1 nivel — la mínima señal extraíble."},
-            {"Modelo": "Árbol depth=3",
-             "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
-             "Descripción": "Árbol pequeño; referencia interpretable."},
-            {"Modelo": "RF v2 (200 árboles, tuned)",
-             "F1-w": round(bin_t.get("f1_weighted", 0), 4),
-             "Descripción": "Modelo de producción del lab."},
-        ])
-        st.dataframe(b_df, hide_index=True, use_container_width=True)
-        st.caption(
-            "El salto entre **Stump** y **RF** mide cuánta señal **no-lineal** hay "
-            "en los datos. Si el stump ya es 0.90, tu problema es fácil; si el stump "
-            "es 0.60 y RF llega a 0.99, hay mucha interacción entre features."
-        )
-
-    st.divider()
-
-    # ──── Feature importance ────
-    st.subheader("Feature importance (Gini)")
+    # ──── ¿En qué se basa? — Feature importance (top 10) ────
+    st.subheader("¿En qué se basa el modelo?")
     fi = m.get("feature_importance_gini_top20", [])
     if fi:
-        fi_df = pd.DataFrame(fi[:15])
+        fi_df = pd.DataFrame(fi[:10])
         fig = px.bar(
             fi_df, x="importance", y="feature", orientation="h",
             color="importance", color_continuous_scale="Viridis",
         )
-        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=500)
+        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, height=380,
+                          xaxis_title="Importancia relativa", yaxis_title="")
         st.plotly_chart(fig, use_container_width=True)
         st.caption(
-            "Las top features son las que más contribuyen a **reducir la impureza Gini** "
-            "del ensemble. Son los 'tornillos' del modelo — cambiarlas mueve la predicción. "
-            "No confundir con **importancia causal** (Gini mide uso, no causalidad)."
+            f"Las 10 features que más usa el modelo (de las {m.get('n_features', 47)} disponibles). "
+            "Medido por Gini: cuánto reduce la impureza cada vez que el modelo parte por esa feature. "
+            "Esto es **uso**, no necesariamente **causalidad**."
         )
+
+    st.divider()
+
+    # ──── Detalle avanzado (oculto por default) ────
+    with st.expander("📊 Métricas avanzadas (per-clase, RF vs XGB, baselines, hyperparams, conteos absolutos)"):
+        # — Per clase —
+        st.markdown("### Reporte por clase (multiclase, test)")
+        cr = m.get("multiclass", {}).get("classification_report", {})
+        rows = []
+        for cls, stats in cr.items():
+            if isinstance(stats, dict) and "f1-score" in stats:
+                rows.append({
+                    "Clase": cls,
+                    "Precision": round(stats.get("precision", 0), 3),
+                    "Recall":    round(stats.get("recall", 0), 3),
+                    "F1":        round(stats.get("f1-score", 0), 3),
+                    "Support":   int(stats.get("support", 0)),
+                })
+        if rows:
+            st.dataframe(pd.DataFrame(rows), hide_index=True, use_container_width=True)
+            st.caption(
+                "**Precision** = de todo lo que predije como X, cuánto era X (bajo ⇒ falsos positivos). "
+                "**Recall** = de todo lo que era X, cuánto detecté (bajo ⇒ falsos negativos)."
+            )
+
+        # — RF vs XGB —
+        rf_metrics = m.get("rf", {})
+        xgb_metrics = m.get("xgboost", {})
+        if rf_metrics and xgb_metrics:
+            st.markdown("### RF v2 vs XGBoost v2 (ambos tuneados)")
+            comp_rows = []
+            if rf_metrics.get("binary") and xgb_metrics.get("binary"):
+                rfb = rf_metrics["binary"].get("F1_macro", 0)
+                xgbb = xgb_metrics["binary"].get("F1_macro", 0)
+                comp_rows.append({"Métrica": "Binary F1-macro",
+                                  "RF": f"{rfb:.4f}", "XGBoost": f"{xgbb:.4f}",
+                                  "Δ (RF-XGB)": f"{rfb-xgbb:+.4f}",
+                                  "Mejor": "RF" if rfb > xgbb else ("XGB" if xgbb > rfb else "=")})
+            if rf_metrics.get("multiclass") and xgb_metrics.get("multiclass"):
+                rfm = rf_metrics["multiclass"].get("F1_macro", 0)
+                xgbm = xgb_metrics["multiclass"].get("F1_macro", 0)
+                comp_rows.append({"Métrica": "Multi F1-macro",
+                                  "RF": f"{rfm:.4f}", "XGBoost": f"{xgbm:.4f}",
+                                  "Δ (RF-XGB)": f"{rfm-xgbm:+.4f}",
+                                  "Mejor": "RF" if rfm > xgbm else ("XGB" if xgbm > rfm else "=")})
+                rfa = rf_metrics["multiclass"].get("accuracy", 0)
+                xgba = xgb_metrics["multiclass"].get("accuracy", 0)
+                comp_rows.append({"Métrica": "Multi accuracy",
+                                  "RF": f"{rfa:.4f}", "XGBoost": f"{xgba:.4f}",
+                                  "Δ (RF-XGB)": f"{rfa-xgba:+.4f}",
+                                  "Mejor": "RF" if rfa > xgba else ("XGB" if xgba > rfa else "=")})
+            if comp_rows:
+                st.dataframe(pd.DataFrame(comp_rows), hide_index=True, use_container_width=True)
+                st.caption(
+                    "Gap típico ~0.02 en F1-macro. RF gana en este dataset porque "
+                    "`class_weight=balanced_subsample` mejora recall en clases raras."
+                )
+
+        # — Baselines —
+        bl = m.get("baselines_on_v1_split", {})
+        if bl:
+            st.markdown("### Comparativa con baselines")
+            b_df = pd.DataFrame([
+                {"Modelo": "Dummy (clase mayoritaria)",
+                 "F1-w": round(bl.get("dummy_majority_f1_weighted", 0), 4),
+                 "Descripción": "Siempre predice 'Benign'. Techo inferior."},
+                {"Modelo": f"Stump (1 split en '{bl.get('stump_feature','?')}')",
+                 "F1-w": round(bl.get("stump_depth1_f1_weighted", 0), 4),
+                 "Descripción": "Árbol de 1 nivel — mínima señal extraíble."},
+                {"Modelo": "Árbol depth=3",
+                 "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
+                 "Descripción": "Árbol pequeño; referencia interpretable."},
+                {"Modelo": "RF v2 (200 árboles, tuned)",
+                 "F1-w": round(bin_t.get("f1_weighted", 0), 4),
+                 "Descripción": "Modelo de producción del lab."},
+            ])
+            st.dataframe(b_df, hide_index=True, use_container_width=True)
+            st.caption(
+                "El salto entre **Stump** y **RF** mide cuánta señal no-lineal "
+                "hay en los datos."
+            )
+
+        # — Hyperparams —
+        if rf_metrics and xgb_metrics:
+            st.markdown("### Hyperparámetros tuneados")
+            cc1, cc2 = st.columns(2)
+            cc1.markdown("**RF v2**")
+            cc1.json(rf_metrics.get("best_params", {}))
+            cc2.markdown("**XGBoost v2**")
+            cc2.json(xgb_metrics.get("best_params", {}))
+
+        # — Split detail —
+        st.markdown("### Detalle del split")
+        st.caption(
+            f"Train: **{m.get('n_train', 0):,}** · Val: **{m.get('n_val', 0):,}** · "
+            f"Test: **{m.get('n_test', 0):,}**. El train es subsample balanceado "
+            "(~10k×6 clases) del split estratificado original (1.4M flujos). Val/test "
+            "quedan con distribución real (no balanceada) para evaluación honesta."
+        )
+
+        # — Conteos absolutos de la matriz —
+        if cm_df is not None and not cm_df.empty:
+            st.markdown("### Matriz de confusión — conteos absolutos")
+            fig = px.imshow(
+                cm, text_auto=True, color_continuous_scale='Blues',
+                aspect='auto', labels=dict(x="Predicho", y="Real", color="Conteo"),
+            )
+            fig.update_layout(height=420)
+            st.plotly_chart(fig, use_container_width=True)
+            st.caption("Misma matriz que arriba pero con números crudos en vez de porcentajes.")
 
 
 # ═══════════════════════════════════════════════════════════════
