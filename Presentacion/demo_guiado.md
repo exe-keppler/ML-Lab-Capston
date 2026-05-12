@@ -227,15 +227,23 @@ se complementan en un SOC.
 ### Pre-requisito: que Suricata vea la NIC física
 
 Por default Suricata escucha el bridge docker (`br-XXXXXXXX`), así que NO
-ve nada que entre por la NIC física del host. Para esta demo:
+ve nada que entre por la NIC física del host. Para esta demo cambiá la
+interfaz a la NIC física del server (`ens33`, `eth0`, etc.):
 
 ```bash
-# En el server, editar .env
-sudo sed -i 's|^SURICATA_INTERFACE=.*|SURICATA_INTERFACE=any|' .env
-# Recrear el container con la nueva interfaz
-sudo docker compose up -d suricata
-sudo docker logs --tail 5 ids-suricata   # debe decir "running in workers mode"
+# En el server, detectar la NIC física
+NIC=$(ip -o link show | awk -F': ' '$2 !~ /^(lo|docker|br-|veth|virbr)/ {print $2; exit}')
+echo "NIC física: $NIC"
+
+# Editar .env y recrear suricata
+sudo sed -i "s|^SURICATA_INTERFACE=.*|SURICATA_INTERFACE=$NIC|" .env
+sudo docker compose up -d --force-recreate suricata
+sudo docker logs --tail 10 ids-suricata   # debe decir "Engine started"
 ```
+
+> ⚠️ **NO usar `SURICATA_INTERFACE=any`** — AF_PACKET no lo soporta y el
+> container entra en loop de reinicio (`af-packet: any: failed to find
+> interface`). `setup.sh` ahora lo detecta y lo sobrescribe al bridge.
 
 Para volver al default después de la demo, dejar `SURICATA_INTERFACE=` vacío
 y correr `setup.sh` o `docker compose up -d suricata` otra vez.

@@ -106,10 +106,12 @@ if [ -z "${SURICATA_INTERFACE:-}" ]; then
         warn "Suricata verá tráfico host pero NO el container-to-container del lab."
     fi
 elif [ "$SURICATA_INTERFACE" = "any" ]; then
-    # Modo "any": Suricata captura sobre TODAS las interfaces del host
-    # (bridge docker + NIC física + lo). Necesario para detectar nmap
-    # u otros ataques externos contra DVWA. Lo respetamos tal cual.
-    ok "SURICATA_INTERFACE=any (captura todas las interfaces del host)"
+    # 'any' NO es válido para AF_PACKET (Suricata 7) — el container entra
+    # en loop de reinicio con "af-packet: any: failed to find interface".
+    # Lo forzamos al bridge docker. Para capturar tráfico externo, setear
+    # explícitamente la NIC física en .env (ej. SURICATA_INTERFACE=ens33).
+    warn "SURICATA_INTERFACE=any es inválido para AF_PACKET — sobrescribiendo a $EXPECTED_INTERFACE"
+    SURICATA_INTERFACE="${EXPECTED_INTERFACE:-eth0}"
 elif [ -n "$CURRENT_BRIDGE_ID" ] && [ "$SURICATA_INTERFACE" != "$EXPECTED_INTERFACE" ]; then
     warn "SURICATA_INTERFACE en .env ($SURICATA_INTERFACE) no coincide con el bridge actual ($EXPECTED_INTERFACE)."
     warn "Actualizando a $EXPECTED_INTERFACE."
