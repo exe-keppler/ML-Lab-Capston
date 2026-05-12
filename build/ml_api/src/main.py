@@ -102,7 +102,7 @@ logger.info(f"  OK. Features: {len(feature_names)}, categorías: {list(label_enc
 # (multi) o [n_features] (binary). Para cada predicción devolvemos los
 # top-N features con mayor |shap| de la clase predicha.
 import shap
-SHAP_TOP_N = int(os.environ.get("SHAP_TOP_N", "5"))
+SHAP_TOP_N = int(os.environ.get("SHAP_TOP_N", "15"))
 SHAP_ENABLED = os.environ.get("SHAP_ENABLED", "1") == "1"
 
 shap_rf = None
