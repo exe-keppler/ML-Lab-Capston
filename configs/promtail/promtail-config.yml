@@ -72,7 +72,7 @@ scrape_configs:
           source: timestamp
           format: RFC3339Nano
 
-  # ── Lab history (cada captura agregada) ──
+  # ── Lab history (eventos discretos del dashboard: ataques + snapshots) ──
   - job_name: lab_history
     static_configs:
       - targets: [localhost]
@@ -82,14 +82,17 @@ scrape_configs:
     pipeline_stages:
       - json:
           expressions:
-            capture_id: capture_id
             timestamp: timestamp
+            event: event
             attack_type: attack_type
-            ml_attacks: ml_summary.attacks
-            suricata_alerts: suricata_summary.alerts
-            agreement_rate: correlation_stats.agreement_rate
+            status: status
+            request_id: request_id
+            new_alerts: new_alerts
+            new_predictions: new_predictions
       - labels:
+          event:
           attack_type:
+          status:
       - timestamp:
           source: timestamp
-          format: RFC3339
+          format: RFC3339Nano

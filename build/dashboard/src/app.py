@@ -186,25 +186,44 @@ def correlate_5tuple(ml_preds, suri_alerts):
 
 
 def save_history_entry(entry):
+    """Append-only escribe `entry` (dict) a logs/lab_history.jsonl.
+
+    Promtail tail-ea este archivo y empuja a Loki con job=lab_history.
+    El append-only es importante: si reescribiéramos el archivo entero
+    (como hacía la versión anterior), Promtail detectaba truncamiento,
+    reseteaba la posición y re-ingería todo → duplicados en Loki en
+    cada guardado.
+    """
     try:
         os.makedirs(LOGS_DIR, exist_ok=True)
-        existing = []
-        if os.path.exists(LAB_HISTORY_PATH):
-            with open(LAB_HISTORY_PATH) as f:
-                for line in f:
-                    try:
-                        existing.append(json.loads(line))
-                    except Exception:
-                        pass
-        existing.append(entry)
-        if len(existing) > HISTORY_MAX_ENTRIES:
-            existing = existing[-HISTORY_MAX_ENTRIES:]
-        with open(LAB_HISTORY_PATH, 'w') as f:
-            for e in existing:
-                f.write(json.dumps(e, ensure_ascii=False) + '\n')
+        with open(LAB_HISTORY_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + '\n')
         return True
     except Exception:
         return False
+
+
+def log_attack_event(*, event: str, attack_type: str, **details):
+    """Persiste un evento del tab Ataques al historial para que aparezca
+    en Grafana (`{job="lab_history"}`). Cada llamada genera UNA entrada
+    JSON con timestamp + event + attack_type + cualquier metadata extra.
+
+    Args:
+        event: identificador del tipo de evento, p.ej. 'attack_sensor',
+            'attack_http', 'attack_combo'. Promtail lo extrae como label
+            Loki para poder filtrar.
+        attack_type: clase del ataque (sqli, scan, mixed, etc.). También
+            label Loki.
+        **details: cualquier otro campo (duration_s, new_alerts, etc.)
+            queda en el JSON pero NO se indexa como label (sería
+            cardinalidad explosiva). Accesible vía `| json` en queries.
+    """
+    save_history_entry({
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'event': event,
+        'attack_type': attack_type,
+        **details,
+    })
 
 
 def load_history():
@@ -1430,6 +1449,14 @@ with tab_attack:
             if "error" in result:
                 status.update(label=f"{result['error']}", state="error")
                 st.error(result["error"])
+                log_attack_event(
+                    event="attack_sensor",
+                    attack_type=attack_to_run,
+                    status="error",
+                    error=result.get("error", "?"),
+                    duration_s=duration, intensity_pps=intensity,
+                    inject_dataset=inject,
+                )
             else:
                 time.sleep(1)
                 new_alerts = count_alerts_now() - base_alerts
@@ -1438,6 +1465,20 @@ with tab_attack:
                     label=f"'{attack_to_run}' → +{new_alerts} alertas · "
                           f"+{new_preds} predicciones",
                     state="complete", expanded=False,
+                )
+
+                # Persistir el evento al historial → Promtail → Loki → Grafana
+                log_attack_event(
+                    event="attack_sensor",
+                    attack_type=attack_to_run,
+                    status="ok",
+                    duration_s=duration, intensity_pps=intensity,
+                    inject_dataset=inject,
+                    request_id=result.get("request_id", "?"),
+                    packets_captured=int(result.get("packets_captured", 0)),
+                    flows_extracted=int(result.get("flows_extracted", 0)),
+                    new_alerts=int(new_alerts),
+                    new_predictions=int(new_preds),
                 )
 
                 c1, c2, c3, c4 = st.columns(4)
@@ -1509,6 +1550,22 @@ with tab_attack:
                     state="complete", expanded=False,
                 )
 
+            # Persistir el evento. `attack_type` lleva las categorías
+            # disparadas (multi label si fueron varias).
+            log_attack_event(
+                event="attack_http",
+                attack_type="+".join(sorted(cats_enabled)) if cats_enabled else "http",
+                categories=sorted(cats_enabled),
+                n_requests=len(http_results),
+                elapsed_s=round(elapsed, 2),
+                new_alerts=int(new_alerts),
+                # breakdown por código HTTP para que sea fácil ver en
+                # Grafana cuántos 200/302/404/etc. dispararon
+                http_codes=dict(
+                    collections.Counter(str(r.get("code", "?")) for r in http_results)
+                ),
+            )
+
             c1, c2, c3 = st.columns(3)
             c1.metric("Requests enviados", len(http_results))
             c2.metric("Categorías", len(cats_enabled))
@@ -1557,6 +1614,20 @@ with tab_attack:
                 label=f"Combo listo · +{final_alerts} alertas Suricata · "
                       f"+{final_preds} predicciones ML",
                 state="complete", expanded=False,
+            )
+
+            # Persistir el evento combo (sensor + HTTP en un solo run)
+            log_attack_event(
+                event="attack_combo",
+                attack_type="combo",
+                sensor_request_id=r1.get("request_id", "?") if "error" not in r1 else None,
+                sensor_status="error" if "error" in r1 else "ok",
+                sensor_packets=int(r1.get("packets_captured", 0)),
+                sensor_flows=int(r1.get("flows_extracted", 0)),
+                http_categories=all_cats,
+                http_requests=len(http_r),
+                new_alerts=int(final_alerts),
+                new_predictions=int(final_preds),
             )
 
         c1, c2 = st.columns(2)
@@ -1736,6 +1807,10 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                     now_iso = datetime.now(timezone.utc).isoformat()
                     save_history_entry({
                         'timestamp': now_iso,
+                        # Etiquetas para que Promtail/Grafana puedan separarlo
+                        # de los eventos del tab Ataques.
+                        'event': 'correlation_snapshot',
+                        'attack_type': 'snapshot',
                         'n_ml_flows': n_ml,
                         'n_suricata_alerts': len(alerts),
                         'verdicts': dict(vc),
