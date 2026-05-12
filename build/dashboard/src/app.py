@@ -525,76 +525,143 @@ tab_intro, tab_dataset, tab_metrics, tab_pred, tab_attack, tab_compare = st.tabs
 # TAB 1: Intro / Lab Guide
 # ═══════════════════════════════════════════════════════════════
 with tab_intro:
-    st.header("Bienvenido al Lab IDS + ML")
+    st.header("¿Cómo funciona el laboratorio?")
+    st.markdown(
+        "Este lab implementa un **IDS híbrido**: el tráfico pasa por **2 detectores en paralelo** "
+        "(un IDS por firmas y un modelo de ML), los resultados se persisten, se centralizan en Loki, "
+        "y se visualizan en Grafana. Abajo está el pipeline completo paso por paso."
+    )
+
+    st.divider()
+
+    # ──── El pipeline (diagrama Graphviz) ────
+    st.subheader("El pipeline (de paquete a dashboard)")
+    dot = """
+digraph pipeline {
+    rankdir=LR;
+    bgcolor=transparent;
+    nodesep=0.4;
+    ranksep=0.5;
+    node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, margin=0.15];
+    edge [fontname="Helvetica", fontsize=9, color="#94a3b8"];
+
+    trafico  [label="Tráfico\\n(bridge docker\\no NIC física)", fillcolor="#f1f5f9"];
+
+    sensor   [label="1. Sensor\\n(scapy + FastAPI)\\ncaptura paquetes", fillcolor="#dbeafe"];
+    suricata [label="1. Suricata\\n(AF_PACKET)\\nIDS por firmas", fillcolor="#dbeafe"];
+
+    cicflow  [label="2. CICFlowMeter\\n47 features por flujo\\n(duración, IAT, flags...)", fillcolor="#fef3c7"];
+
+    mlapi    [label="3. ML API\\nRF + XGBoost\\nbinary + multiclase + SHAP", fillcolor="#dcfce7"];
+    rules    [label="3. ET Open\\n~50k reglas\\n(SQLi, XSS, Recon, ...)", fillcolor="#dcfce7"];
+
+    jsonl    [label="4. sensor_predictions\\n.jsonl", fillcolor="#f3e8ff"];
+    eve      [label="4. eve.json\\n(alerts + flows)", fillcolor="#f3e8ff"];
+
+    promtail [label="Promtail\\n(tail logs)", fillcolor="#fee2e2"];
+    loki     [label="Loki\\n(log store)", fillcolor="#fee2e2"];
+    grafana  [label="5. Grafana\\ndashboards SOC\\n(RF, XGB, Suricata, correlación)", fillcolor="#fce7f3"];
+
+    trafico -> sensor;
+    trafico -> suricata;
+
+    sensor   -> cicflow -> mlapi -> jsonl;
+    suricata -> rules   -> eve;
+
+    jsonl -> promtail;
+    eve   -> promtail;
+    promtail -> loki -> grafana;
+}
+"""
+    st.graphviz_chart(dot, use_container_width=True)
+    st.caption(
+        "🔵 captura · 🟡 extracción · 🟢 análisis · 🟣 persistencia · 🔴 transporte · 🌸 visualización"
+    )
+
+    st.divider()
+
+    # ──── Cada paso explicado ────
+    st.subheader("Cada paso del pipeline")
+    st.markdown(
+        "El mismo tráfico se analiza por **2 caminos en paralelo** (ML y reglas), "
+        "y los resultados convergen en Grafana para correlacionar."
+    )
+
+    p1, p2 = st.columns(2)
+    with p1:
+        st.markdown("##### 🤖 Camino ML (aprendizaje)")
+        st.markdown("""
+1. **Sensor** (FastAPI + scapy) — sniffea el bridge docker / NIC del host.
+2. **CICFlowMeter** — agrupa paquetes en flujos bidireccionales y calcula **47 features estadísticas** por flujo (Flow_Duration, IAT, flags TCP, packet length stats, etc.).
+3. **ML API** — los flujos pasan por 2 modelos:
+   - **Binary**: ¿es ataque o no?
+   - **Multiclase**: ¿qué tipo de ataque? (DDoS, DoS, BF, Recon, Web Attack, Benign)
+   - **SHAP** explica cuáles features pesaron más en la decisión.
+4. **JSONL** — cada predicción se appendea a `sensor_predictions.jsonl`.
+""")
+    with p2:
+        st.markdown("##### 📜 Camino reglas (firmas)")
+        st.markdown("""
+1. **Suricata 7.0.15** — escucha la misma interfaz que el sensor, vía AF_PACKET.
+2. (No hay paso de feature engineering: las reglas comparan **bytes crudos** del paquete o flags del protocolo.)
+3. **ET Open** — ~50k reglas mantenidas por Emerging Threats:
+   ```
+   alert tcp any -> $HOME_NET 80 (content:"UNION SELECT"; sid:XXX;)
+   ```
+4. **eve.json** — cada match genera un evento `alert`. También loggea `flow`, `http`, `dns`, etc.
+""")
+
+    st.markdown("---")
+    st.markdown(
+        "##### 🎯 Convergencia: **Promtail → Loki → Grafana**\n\n"
+        "Ambos JSONLs los tail-ea **Promtail**, los empuja a **Loki** (log store) con labels "
+        "(`model=rf|xgb`, `is_attack=true|false`, `category=...`), y **Grafana** los consulta "
+        "en vivo. Los 5 dashboards SOC del lab cruzan ML vs Suricata por **5-tupla** "
+        "(src_ip, dst_ip, src_port, dst_port, proto) para encontrar **discrepancias** "
+        "(zero-days candidatos o falsos positivos)."
+    )
+
+    st.divider()
+
+    # ──── Acceso a servicios ────
+    st.subheader("Servicios accesibles desde tu browser")
+    s1, s2, s3, s4 = st.columns(4)
+    s1.link_button("📊 Grafana", f"http://{HOST_IP}:3000", use_container_width=True)
+    s2.link_button("🔬 JupyterLab", f"http://{HOST_IP}:8888", use_container_width=True)
+    s3.link_button("🎯 DVWA (target)", f"http://{HOST_IP}:8080", use_container_width=True)
+    s4.link_button("⚙️ Sensor API docs", f"http://{HOST_IP}:9999/docs", use_container_width=True)
+    st.caption(
+        f"Todos sobre `{HOST_IP}`. El dashboard que estás viendo va por nginx en el puerto 80 con BasicAuth."
+    )
+
+    st.divider()
+
+    # ──── Recorrido recomendado ────
+    st.subheader("Recorrido recomendado de las tabs")
     st.markdown("""
-Este laboratorio combina **Machine Learning** y **detección por firmas** para construir
-un **IDS híbrido**. Objetivos pedagógicos:
-
-1. Entender cómo se entrena un modelo de ML con tráfico real (CICIDS2017).
-2. Ver las limitaciones de los IDS tradicionales basados en reglas.
-3. Experimentar lanzando ataques y observar la detección en vivo.
-4. Razonar sobre **complementariedad**: ¿qué aporta cada enfoque y dónde falla?
-""")
-    st.divider()
-
-    st.subheader("Arquitectura del lab")
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("**Captura / detección**")
-        st.markdown("""
-- **Suricata 7.0.15** — IDS open-source
-- 49.8k reglas **ET Open** (Emerging Threats)
-- **CICFlowMeter** — 47 features por flujo TCP/UDP
-- **Sensor FastAPI** — orquesta capturas + inyección
-""")
-    with c2:
-        st.markdown("**Análisis / ML**")
-        st.markdown("""
-- **ML API** — FastAPI + Random Forest **+ XGBoost**
-- 4 modelos: RF y XGB, cada uno **binario** (ataque/no) y **multiclase** (6 categorías)
-- Entrenado en **CICIDS2017** (2.5M flujos reales)
-- Mapping automático a **MITRE ATT&CK** + SHAP per-flujo
-""")
-    with c3:
-        st.markdown("**Observabilidad**")
-        st.markdown("""
-- **Grafana 10.2** — dashboards en vivo
-- **Loki** — agregador de logs
-- **Promtail** — shipper
-- **DVWA** — host vulnerable objetivo
+| # | Tab | Qué aprendés | Conecta con el pipeline |
+|---|---|---|---|
+| 1 | **Dataset** | Con qué datos entrenó el modelo, distribución por clase | Insumo del **paso 3 (ML API)** |
+| 2 | **Métricas** | Qué tan bueno es el modelo, dónde se equivoca | Calidad del **paso 3** |
+| 3 | **Predicción** | Clasificar flujos manualmente + SHAP | Camino corto: **paso 3** directo (sin 1 y 2) |
+| 4 | **Ataques** | Lanzar ataques reales contra DVWA | Genera entrada para **pasos 1–4** |
+| 5 | **Suricata vs ML** | Comparar los 2 caminos del pipeline | Lectura del **paso 5 (Grafana)** |
 """)
 
     st.divider()
-    st.subheader("Recorrido recomendado")
-    st.markdown("""
-| Paso | Tab | Qué aprendes |
-|---|---|---|
-| 1 | Dataset | Con qué datos se entrenó el modelo; distribución y correlaciones |
-| 2 | Métricas | Qué tan bueno es el modelo; confusion matrix y feature importance |
-| 3 | Predicción | Clasificar flujos interactivamente; ver cómo cambian las decisiones |
-| 4 | Ataques | Lanzar ataques reales contra el host vulnerable (DVWA) |
-| 5 | Suricata vs ML | Comparar los dos enfoques: dónde coinciden, dónde discrepan |
-""")
-
-    st.divider()
-    st.subheader("Servicios activos del lab")
-    c1, c2, c3, c4 = st.columns(4)
-    c1.link_button("Grafana", f"http://{HOST_IP}:3000", use_container_width=True)
-    c2.link_button("Jupyter", f"http://{HOST_IP}:8888", use_container_width=True)
-    c3.link_button("DVWA (target)", f"http://{HOST_IP}:8080", use_container_width=True)
-    c4.link_button("Sensor API docs", f"http://{HOST_IP}:9999/docs", use_container_width=True)
-
-    st.divider()
-    with st.expander("Glosario rápido"):
+    with st.expander("📖 Glosario rápido"):
         st.markdown("""
 - **IDS (Intrusion Detection System)**: sistema que detecta intentos de ataque en una red.
-- **Suricata**: IDS open-source multithread, base del lab. Usa reglas tipo `alert tcp any -> $HOME_NET 80 (content:"UNION SELECT"; sid:XXX;)`.
+- **Suricata**: IDS open-source multithread, base del lab. Reglas tipo `alert tcp any -> $HOME_NET 80 (content:"UNION SELECT"; sid:XXX;)`.
 - **ET Open (Emerging Threats)**: set gratuito de ~50k reglas Suricata mantenido por la comunidad.
 - **Random Forest**: ensemble de cientos de árboles de decisión. Cada árbol vota y se toma la mayoría.
+- **XGBoost**: gradient boosting de árboles. Cada árbol corrige los errores del anterior.
 - **CICIDS2017**: dataset benchmark del Canadian Institute for Cybersecurity con 14+ tipos de ataque.
 - **Flow (flujo)**: secuencia bidireccional de paquetes entre dos endpoints (mismo src/dst/puertos/proto).
-- **CICFlowMeter**: extractor de 80+ estadísticas por flujo (duración, bytes, IAT, flags TCP, etc.).
+- **CICFlowMeter**: extractor de 80+ estadísticas por flujo (duración, bytes, IAT, flags TCP, etc.). El modelo v2 usa 47 auditadas.
+- **5-tupla**: (src_ip, dst_ip, src_port, dst_port, protocolo) — clave para identificar un flujo.
 - **MITRE ATT&CK**: framework que clasifica técnicas de ataque observadas en el mundo real (T1046, T1110, ...).
+- **SHAP**: método de explicabilidad que muestra cuánto contribuyó cada feature a una predicción específica.
 - **Zero-day**: ataque sin firma conocida — ML puede ser más efectivo aquí que Suricata.
 - **False Positive (FP)** / **False Negative (FN)**: tráfico benigno marcado como ataque / ataque no detectado.
 """)
