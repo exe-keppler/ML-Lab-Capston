@@ -728,31 +728,43 @@ with tab_metrics:
         st.error("No se pudieron obtener métricas del ML API.")
         st.stop()
 
-    bin_t = m.get("binary", {}).get("test", {})
-    mc_t = m.get("multiclass", {}).get("test", {})
-    # Accuracy multiclase del modelo activo no está en m["multiclass"]["test"];
-    # vive en m["rf"]["multiclass"]["accuracy"]. Fallback a 0 si la API responde
-    # un esquema distinto.
-    mc_accuracy = m.get("rf", {}).get("multiclass", {}).get("accuracy", 0)
+    # ──── Selector de modelo ÚNICO para todo el tab ────
+    # Maneja headline metrics + matriz de confusión. Por defecto: RF.
+    try:
+        avail = requests.get(f"{API_URL}/health", timeout=3).json().get("available_models", ["rf"])
+    except Exception:
+        avail = ["rf"]
+    metric_model = st.radio(
+        "Modelo a evaluar",
+        options=avail,
+        format_func=lambda mm: {"rf": "Random Forest v2", "xgb": "XGBoost v2"}.get(mm, mm),
+        horizontal=True,
+        key="metrics_model_view",
+    )
+    # API key del modelo seleccionado: 'rf' → m['rf'], 'xgb' → m['xgboost']
+    _mk = "xgboost" if metric_model == "xgb" else "rf"
+    sel = m.get(_mk, {})
+    sel_mc = sel.get("multiclass", {})
+    sel_bin = sel.get("binary", {})
 
-    # ──── 3 números headline ────
+    # ──── 3 números headline (del modelo elegido) ────
     c1, c2, c3 = st.columns(3)
     c1.metric(
         "Accuracy (categoría)",
-        f"{mc_accuracy:.1%}",
+        f"{sel_mc.get('accuracy', 0):.1%}",
         help="De cada 100 flujos del test set, cuántos clasificó en la categoría correcta "
              "(entre Benign / DDoS / DoS / Brute Force / Reconnaissance / Web Attack).",
     )
     c2.metric(
         "F1-macro (categoría)",
-        f"{mc_t.get('f1_macro', 0):.3f}",
+        f"{sel_mc.get('F1_macro', 0):.3f}",
         help="Promedio del F1 por clase, sin ponderar por tamaño. Es la métrica que importa "
              "cuando las clases están desbalanceadas: si una clase rara va mal, F1-macro baja "
              "mucho aunque la accuracy siga alta.",
     )
     c3.metric(
         "F1 binario (¿es ataque?)",
-        f"{bin_t.get('f1_weighted', 0):.3f}",
+        f"{sel_bin.get('F1_weighted', 0):.3f}",
         help="Independientemente de la categoría: ¿el modelo distingue ataque vs benigno? "
              "Casi siempre el binario es más fácil que el multiclase.",
     )
@@ -760,7 +772,7 @@ with tab_metrics:
     st.caption(
         f"Evaluado sobre **{m.get('n_test', 0):,}** flujos del test set "
         f"(nunca vistos en entrenamiento) usando **{m.get('n_features','?')}** features "
-        f"auditadas. Modelo activo: **{m.get('pipeline','?')}**."
+        f"auditadas. Pipeline: **{m.get('pipeline','?')}**."
     )
 
     st.divider()
@@ -769,27 +781,16 @@ with tab_metrics:
     st.subheader("¿Dónde se equivoca?")
     st.markdown(
         "Cada fila es una clase real, cada columna lo que el modelo predijo. "
-        "La **diagonal son aciertos**; fuera de la diagonal, confusiones."
+        "La **diagonal son aciertos**; fuera de la diagonal, confusiones. "
+        f"(modelo: **{ {'rf':'Random Forest v2','xgb':'XGBoost v2'}.get(metric_model, metric_model) }**)"
     )
 
-    cm_col1, cm_col2 = st.columns([3, 1])
-    with cm_col1:
-        if st.button("Recalcular con nueva muestra"):
-            st.cache_data.clear()
-            st.rerun()
-    with cm_col2:
-        try:
-            avail = requests.get(f"{API_URL}/health", timeout=3).json().get("available_models", ["rf"])
-        except Exception:
-            avail = ["rf"]
-        cm_model = st.selectbox(
-            "Modelo",
-            options=avail,
-            format_func=lambda mm: {"rf": "RF v2", "xgb": "XGBoost v2"}.get(mm, mm),
-            key="cm_model_choice",
-        )
+    if st.button("Recalcular con nueva muestra"):
+        st.cache_data.clear()
+        st.rerun()
 
-    cm_df = compute_confusion_matrix(n_per_class=50, model=cm_model)
+    # Usa el mismo metric_model — la matriz y los headlines siempre van sincronizados.
+    cm_df = compute_confusion_matrix(n_per_class=50, model=metric_model)
     if cm_df is None or cm_df.empty:
         st.warning("No se pudo calcular (dataset o API no disponible).")
     else:
