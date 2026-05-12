@@ -730,12 +730,16 @@ with tab_metrics:
 
     bin_t = m.get("binary", {}).get("test", {})
     mc_t = m.get("multiclass", {}).get("test", {})
+    # Accuracy multiclase del modelo activo no está en m["multiclass"]["test"];
+    # vive en m["rf"]["multiclass"]["accuracy"]. Fallback a 0 si la API responde
+    # un esquema distinto.
+    mc_accuracy = m.get("rf", {}).get("multiclass", {}).get("accuracy", 0)
 
     # ──── 3 números headline ────
     c1, c2, c3 = st.columns(3)
     c1.metric(
         "Accuracy (categoría)",
-        f"{mc_t.get('accuracy', 0):.1%}",
+        f"{mc_accuracy:.1%}",
         help="De cada 100 flujos del test set, cuántos clasificó en la categoría correcta "
              "(entre Benign / DDoS / DoS / Brute Force / Reconnaissance / Web Attack).",
     )
