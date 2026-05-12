@@ -92,7 +92,10 @@ services:
     networks:
       ids_network:
         ipv4_address: 172.25.0.11
-    mem_limit: 512m
+    # 1 GB: streamlit + pandas + plotly + dataset cacheado (12k×47) +
+    # historial de predicciones se acerca a 512 MB y el container quedaba
+    # OOM-throttling con request inicial de ~8 s. La VM tiene headroom.
+    mem_limit: 1024m
     cpus: "0.5"
     cap_drop: [ALL]
     security_opt:
