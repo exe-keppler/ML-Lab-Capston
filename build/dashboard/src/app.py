@@ -1030,7 +1030,7 @@ with tab_metrics:
                  "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
                  "Descripción": "Árbol pequeño; referencia interpretable."},
                 {"Modelo": "RF v2 (200 árboles, tuned)",
-                 "F1-w": round(bin_t.get("f1_weighted", 0), 4),
+                 "F1-w": round(m.get("binary", {}).get("test", {}).get("f1_weighted", 0), 4),
                  "Descripción": "Modelo de producción del lab."},
             ])
             st.dataframe(b_df, hide_index=True, use_container_width=True)
