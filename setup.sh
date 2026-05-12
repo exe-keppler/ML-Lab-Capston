@@ -152,6 +152,15 @@ export HOST_IP
 # ─────────────────────────────────────────────────────────────
 mkdir -p logs datasets
 chmod 777 logs    # Suricata corre como root y sensor/dashboard escriben JSONL
+
+# Pre-crear los JSONL del sensor/lab con perms 666. Si quedaron de una
+# corrida anterior con dueño distinto (ej. systemd-network del container
+# de Suricata), el sensor (cap_drop:ALL → sin CAP_DAC_OVERRIDE) no podía
+# appender al archivo aunque corra como root.
+for f in logs/sensor_predictions.jsonl logs/lab_history.jsonl; do
+    [ -f "$f" ] || touch "$f"
+    chmod 666 "$f" 2>/dev/null || true
+done
 ok "logs/ y datasets/ creados"
 
 # ─────────────────────────────────────────────────────────────
