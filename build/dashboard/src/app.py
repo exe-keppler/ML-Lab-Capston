@@ -1,4 +1,4 @@
-"""Dashboard IDS-ML v2 — IA aplicada a Ciberseguridad (lab educativo).
+"""Dashboard IDS-ML — IA aplicada a Ciberseguridad (lab educativo).
 
 Stakeholders: estudiantes de ciberseguridad aprendiendo ML.
 
@@ -519,7 +519,7 @@ def run_http_attacks(categories):
 # ═══════════════════════════════════════════════════════════════
 st.set_page_config(page_title="IDS-ML Lab UDLA", layout="wide", page_icon="")
 st.title("IDS-ML Educational Lab")
-st.caption("IA aplicada a Ciberseguridad · Random Forest v2 + Suricata ET-Open · UDLA Capstone 2026")
+st.caption("IA aplicada a Ciberseguridad · Random Forest + Suricata ET-Open · UDLA Capstone 2026")
 
 col1, col2, col3 = st.columns(3)
 try:
@@ -681,7 +681,7 @@ digraph pipeline {
 - **XGBoost**: gradient boosting de árboles. Cada árbol corrige los errores del anterior.
 - **CICIDS2017**: dataset benchmark del Canadian Institute for Cybersecurity con 14+ tipos de ataque.
 - **Flow (flujo)**: secuencia bidireccional de paquetes entre dos endpoints (mismo src/dst/puertos/proto).
-- **CICFlowMeter**: extractor de 80+ estadísticas por flujo (duración, bytes, IAT, flags TCP, etc.). El modelo v2 usa 47 auditadas.
+- **CICFlowMeter**: extractor de 80+ estadísticas por flujo (duración, bytes, IAT, flags TCP, etc.). El modelo usa 47 auditadas.
 - **5-tupla**: (src_ip, dst_ip, src_port, dst_port, protocolo) — clave para identificar un flujo.
 - **MITRE ATT&CK**: framework que clasifica técnicas de ataque observadas en el mundo real (T1046, T1110, ...).
 - **SHAP**: método de explicabilidad que muestra cuánto contribuyó cada feature a una predicción específica.
@@ -934,7 +934,7 @@ with tab_metrics:
     metric_model = st.radio(
         "Modelo a evaluar",
         options=avail,
-        format_func=lambda mm: {"rf": "Random Forest v2", "xgb": "XGBoost v2"}.get(mm, mm),
+        format_func=lambda mm: {"rf": "Random Forest", "xgb": "XGBoost"}.get(mm, mm),
         horizontal=True,
         key="metrics_model_view",
     )
@@ -979,7 +979,7 @@ with tab_metrics:
     st.markdown(
         "Cada fila es una clase real, cada columna lo que el modelo predijo. "
         "La **diagonal son aciertos**; fuera de la diagonal, confusiones. "
-        f"(modelo: **{ {'rf':'Random Forest v2','xgb':'XGBoost v2'}.get(metric_model, metric_model) }**)"
+        f"(modelo: **{ {'rf':'Random Forest','xgb':'XGBoost'}.get(metric_model, metric_model) }**)"
     )
 
     if st.button("Recalcular con nueva muestra"):
@@ -1076,7 +1076,7 @@ with tab_metrics:
         rf_metrics = m.get("rf", {})
         xgb_metrics = m.get("xgboost", {})
         if rf_metrics and xgb_metrics:
-            st.markdown("### RF v2 vs XGBoost v2 (ambos tuneados)")
+            st.markdown("### Random Forest vs XGBoost (ambos tuneados)")
             comp_rows = []
             if rf_metrics.get("binary") and xgb_metrics.get("binary"):
                 rfb = rf_metrics["binary"].get("F1_macro", 0)
@@ -1119,7 +1119,7 @@ with tab_metrics:
                 {"Modelo": "Árbol depth=3",
                  "F1-w": round(bl.get("tree_depth3_f1_weighted", 0), 4),
                  "Descripción": "Árbol pequeño; referencia interpretable."},
-                {"Modelo": "RF v2 (200 árboles, tuned)",
+                {"Modelo": "Random Forest (200 árboles, tuned)",
                  "F1-w": round(m.get("binary", {}).get("test", {}).get("f1_weighted", 0), 4),
                  "Descripción": "Modelo de producción del lab."},
             ])
@@ -1133,9 +1133,9 @@ with tab_metrics:
         if rf_metrics and xgb_metrics:
             st.markdown("### Hyperparámetros tuneados")
             cc1, cc2 = st.columns(2)
-            cc1.markdown("**RF v2**")
+            cc1.markdown("**Random Forest**")
             cc1.json(rf_metrics.get("best_params", {}))
-            cc2.markdown("**XGBoost v2**")
+            cc2.markdown("**XGBoost**")
             cc2.json(xgb_metrics.get("best_params", {}))
 
         # — Split detail —
@@ -1266,12 +1266,12 @@ with tab_pred:
     model_choice = st.radio(
         "Modelo",
         options=available,
-        format_func=lambda m: {"rf": "Random Forest v2 (tuned)", "xgb": "XGBoost v2 (tuned)"}.get(m, m),
+        format_func=lambda m: {"rf": "Random Forest (tuned)", "xgb": "XGBoost (tuned)"}.get(m, m),
         horizontal=True,
         key="predict_model_choice",
     )
 
-    if st.button(f"Clasificar con el modelo v2 ({model_choice.upper()})", type="primary", use_container_width=True):
+    if st.button(f"Clasificar con el modelo ({model_choice.upper()})", type="primary", use_container_width=True):
         try:
             resp = requests.post(
                 f"{API_URL}/predict?model={model_choice}",
@@ -1418,7 +1418,7 @@ with tab_attack:
     st.caption(
         "POST a `/capture/start` del sensor. El sensor genera tráfico con scapy, "
         "captura, extrae 47 features con CICFlowMeter, inyecta flujos reales del "
-        "CICIDS2017 y clasifica con el modelo v2. Escribe en "
+        "CICIDS2017 y clasifica con el modelo. Escribe en "
         "`sensor_predictions.jsonl` (visible en Grafana)."
     )
 
@@ -1639,7 +1639,7 @@ with tab_attack:
         c2.metric("Predicciones ML (Δ)", final_preds)
         st.info(
             f"**Siguiente paso**: abre [Grafana](http://{HOST_IP}:3000) → "
-            "**IDS-ML Overview v2** con time range `Last 15 minutes`. "
+            "**IDS-ML Overview** con time range `Last 15 minutes`. "
             "Deberías ver picos en ambos paneles (Suricata y ML)."
         )
 
@@ -1897,7 +1897,7 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
 st.markdown("---")
 st.caption(
     "Maestría en IA Aplicada · UDLA 2026 · "
-    f"Dashboard v2 · [Grafana](http://{HOST_IP}:3000) · "
+    f"Dashboard · [Grafana](http://{HOST_IP}:3000) · "
     f"[Jupyter](http://{HOST_IP}:8888) · "
     f"[DVWA](http://{HOST_IP}:8080)"
 )
