@@ -346,11 +346,15 @@ def is_real_alert(alert):
     return True
 
 
-@st.cache_data(ttl=30, show_spinner=False)
-def load_eve_recent(max_bytes=5_000_000):
+@st.cache_data(ttl=10, show_spinner=False)
+def load_eve_recent(max_bytes=50_000_000):
     """Tail de eve.json: lee solo los últimos ~max_bytes en lugar de
     cargar el archivo completo (que crece a 100+ MB en sesiones largas).
-    Cache 30 s para no relanzar el parse en cada render.
+    Default 50 MB porque Suricata genera ~80% decoder noise; con sólo
+    5 MB de tail quedaban 1-2 alertas ET-Open reales y la tab parecía
+    'estática'.
+    Cache 10 s para que el usuario vea cambios rápido sin tener que
+    cliquear refresh manualmente.
     Devuelve (alerts, flows, n_lines_recientes, total_size_bytes)."""
     if not os.path.exists(EVE_JSON_PATH):
         return [], [], 0, 0
@@ -1668,32 +1672,58 @@ Cuando cruzamos predicciones ML ↔ alertas Suricata por **5-tupla** (src_ip, ds
 En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos los ataques HTTP**; el ML solo ve lo que procesa el sensor (capturas puntuales + flujos inyectados). Por eso `suricata_only` es común.
 """)
 
+    # Controles arriba: refresh manual + toggle de decoder noise.
+    cc1, cc2 = st.columns([1, 3])
+    with cc1:
+        if st.button("🔄 Refrescar", help="Invalida la cache y vuelve a leer eve.json + sensor_predictions.jsonl"):
+            load_eve_recent.clear()
+            st.rerun()
+    with cc2:
+        include_noise = st.checkbox(
+            "Incluir decoder noise (parser warnings)",
+            value=False,
+            help="Si está OFF: solo firmas ET-Open reales. Si está ON: también muestra "
+                 "warnings de Suricata (SURICATA HTTP unable to match..., Generic Protocol "
+                 "Command Decode, etc.). Útil para troubleshoot pero NO son ataques.",
+            key="ml_suri_include_noise",
+        )
+
     eve_path = EVE_JSON_PATH
     if not os.path.exists(eve_path):
         st.info(f"`eve.json` no encontrado en {LOGS_DIR}.")
     else:
         try:
-            # Tail con cache (30 s). Antes leía el archivo completo cada
-            # render — con eve.json de 100+ MB esto colgaba el tab.
+            # Tail con cache (10 s, 50 MB). Antes leía 5 MB y casi todo era
+            # decoder noise → la tab quedaba "estática" mostrando 0 alertas
+            # reales. 50 MB típicamente da 30+ alertas ET-Open.
             alerts_all, flows, n_recent_lines, eve_size = load_eve_recent()
-            alerts = [a for a in alerts_all if is_real_alert(a)]
-            n_noise = len(alerts_all) - len(alerts)
+            real_alerts = [a for a in alerts_all if is_real_alert(a)]
+            n_noise = len(alerts_all) - len(real_alerts)
+            # Según el toggle: o solo reales, o todas.
+            alerts = alerts_all if include_noise else real_alerts
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Alertas reales", f"{len(alerts):,}",
-                      help=f"Excluye {n_noise:,} eventos del decoder (parser warnings) que NO son ataques.")
+            c1.metric("Alertas reales", f"{len(real_alerts):,}",
+                      help=f"Firmas ET-Open propiamente dichas (SQLi, XSS, scan, etc.). "
+                           f"Excluye {n_noise:,} eventos del decoder.")
             c2.metric("Decoder noise", f"{n_noise:,}",
-                      help="Warnings tipo 'SURICATA HTTP unable to match...' — útiles para troubleshoot, no para SOC.")
+                      help="Warnings tipo 'SURICATA HTTP unable to match...' — útiles para "
+                           "troubleshoot, no son ataques.")
             c3.metric("Flows (Suricata)", f"{len(flows):,}")
             c4.metric("eve.json size", f"{eve_size/1024/1024:.1f} MB",
-                      help=f"Tail leído: ~5 MB recientes ({n_recent_lines:,} líneas).")
+                      help=f"Tail leído: ~{min(eve_size, 50_000_000)/1024/1024:.1f} MB recientes ({n_recent_lines:,} líneas).")
 
             if alerts:
                 sigs = collections.Counter(a.get("alert", {}).get("signature", "?") for a in alerts)
                 sig_df = pd.DataFrame(sigs.most_common(15), columns=["Firma", "Conteo"])
+                chart_title = (
+                    "Top 15 firmas Suricata (TODAS — incluye decoder noise)"
+                    if include_noise else
+                    "Top 15 firmas Suricata (solo firmas ET-Open reales)"
+                )
                 fig = px.bar(sig_df, x="Conteo", y="Firma", orientation="h",
                              color="Conteo", color_continuous_scale="Reds",
-                             title="Top 15 firmas Suricata (filtrado: solo firmas ET Open reales)")
+                             title=chart_title)
                 fig.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -1817,10 +1847,19 @@ En el lab aún hay asimetría: Suricata escucha el bridge docker y ve **todos lo
                         'agreement_rate': round(agree, 4),
                     })
             else:
-                st.info(
-                    "Aún no hay alertas Suricata reales (solo decoder noise filtrado). "
-                    "Ve al tab **Ataques** y lanza payloads HTTP para generar alertas."
-                )
+                if not include_noise and n_noise > 0:
+                    st.info(
+                        f"En los últimos {min(eve_size,50_000_000)/1024/1024:.0f} MB de "
+                        f"eve.json hay **{n_noise} eventos del decoder** pero **cero firmas "
+                        "ET-Open reales**. Para verlos, activá *'Incluir decoder noise'* arriba. "
+                        "Para generar firmas ET-Open reales, andá al tab **Ataques** → sección B "
+                        "(payloads HTTP)."
+                    )
+                else:
+                    st.info(
+                        "Aún no hay alertas Suricata. Andá al tab **Ataques** y lanzá payloads "
+                        "HTTP para generar firmas."
+                    )
         except Exception as e:
             st.warning(f"Error leyendo eve.json: {e}")
 
